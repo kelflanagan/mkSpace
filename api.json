@@ -10,7 +10,7 @@
     "https"
   ],
   "paths": {
-    "/desired_temperature": {
+    "/": {
       "get": {
         "consumes": [
           "application/json"
@@ -37,7 +37,7 @@
             ".*Server.*": {
               "statusCode": "500",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+                "application/json": "{\"errorMessage\" : \"Internal Server Error\"}"
               }
             },
             "default": {
@@ -46,18 +46,10 @@
             ".*NotFound.*": {
               "statusCode": "404",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+                "application/json": "{\"errorMessage\" : \"Not Found\"}"
               }
             }
-          },
-          "requestTemplates": {
-            "application/json": "{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\"\n}"
-          },
-          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
-	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
-          "passthroughBehavior": "when_no_templates",
-          "httpMethod": "POST",
-          "type": "aws"
+          }
         }
       },
       "post": {
@@ -89,7 +81,7 @@
             ".*Server.*": {
               "statusCode": "500",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+                "application/json": "{\"errorMessage\" : \"Internal Server Error\"}"
               }
             },
             "default": {
@@ -98,20 +90,20 @@
             ".*MethodNotAllowed.*": {
               "statusCode": "405",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Method Not Allowed\"\n}"
+                "application/json": "{\"errorMessage\" : \"Method Not Allowed\"}"
               }
             },
             ".*NotFound.*": {
               "statusCode": "404",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+                "application/json": "{\"errorMessage\" : \"Not Found\"}"
               }
             }
           },
           "requestTemplates": {
             "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n## for each key in input json object print\n## \"key\" : \"value\" followed by a , if not last\n## else if last print print \\n. NOTE: all space\n## and carriage returns in this file are quite \n## literally passed as input to the api handler\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
-          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:mySpace/invocations",
 	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
           "passthroughBehavior": "when_no_templates",
           "httpMethod": "POST",
@@ -147,7 +139,7 @@
             ".*Server.*": {
               "statusCode": "500",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+                "application/json": "{\"errorMessage\" : \"Internal Server Error\"}"
               }
             },
             "default": {
@@ -169,7 +161,7 @@
           "requestTemplates": {
             "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n## for each key in input json object print\n## \"key\" : \"value\" followed by a , if not last\n## else if last print print \\n. NOTE: all space\n## and carriage returns in this file are quite \n## literally passed as input to the api handler\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
-          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:mySpace/invocations",
 	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
           "passthroughBehavior": "when_no_templates",
           "httpMethod": "POST",
@@ -227,7 +219,7 @@
           "requestTemplates": {
             "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n## for each key in input json object print\n## \"key\" : \"value\" followed by a , if not last\n## else if last print print \\n. NOTE: all space\n## and carriage returns in this file are quite \n## literally passed as input to the api handler\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
-          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:mySpace/invocations",
 	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
           "passthroughBehavior": "when_no_templates",
           "httpMethod": "POST",

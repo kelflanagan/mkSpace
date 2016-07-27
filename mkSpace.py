@@ -22,12 +22,11 @@ def get_json_object(filename):
     return j
 
 
-""" create_api() creates an API at Amazon AWS API Gateway
+""" create_aws_api() creates an API at Amazon AWS API Gateway
 parameters: filename is the name of a file in JSON format
 returns: True or False for success or failure
 """
-def create_api(filename):
-    # open file
+def create_aws_api(filename):
     # read file and convert to bytes
     with open(filename, 'r') as fp:
         f = fp.read()
@@ -40,7 +39,7 @@ def create_api(filename):
         failOnWarnings=False,
         body=b
         )
-    print(response)
+    print('this is where I left off')
     return True
 
 
@@ -202,9 +201,7 @@ def install_lambda_function(config_json, role_arn):
         Code={"ZipFile" : zip_file},
         Description='mySpace is the installer app for mySpace services'
         )
-    print(response)
-    arn = 'need to fix this'
-    return arn
+    return response['FunctionArn']
         
 
 def update_lambda_function(config_json):
@@ -216,7 +213,7 @@ def update_lambda_function(config_json):
         jo['github_repo_owner']
         )
     if not success:
-        return False
+        return None
 
     # create boto3 lambda client
     l = boto3.client('lambda')
@@ -224,8 +221,7 @@ def update_lambda_function(config_json):
         FunctionName=jo['aws_lambda_name'],
         ZipFile=zip_file
         )
-    print(response)
-    return True
+    return response['FunctionArn']
 
 
 # read command line arguments and give user feedback
@@ -257,11 +253,21 @@ if jo['aws_lambda_name'] not in function_list:
         print('Install successful')
     else:
         print('Install failed')
+        exit()
 
 # update code since the function exists
 else:
-    if update_lambda_function(jo):
+    lambda_arn = update_lambda_function(jo)
+    if lambda_arn != None:
         print('Update successful')
     else:
         print('Update failed')
-        
+        exit()
+
+# now we have lambda arn take these steps
+
+# Step 1 - install API using api.json file as template
+#success = create_aws_api('api.json')
+
+# Step 2 - add integrations for RequestTemplate usinf lambda_arn
+#          also add credentials role
