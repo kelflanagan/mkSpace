@@ -1,6 +1,6 @@
 MODULE = mkSpace
 SRC = $(MODULE).py
-CONFIG = $(MODULE).cfg $(MODULE).json
+CONFIG = $(MODULE).cfg api.json
 
 $(MODULE).zip:	$(SRC) $(CONFIG)
 		zip $(MODULE).zip $(SRC) $(CONFIG)

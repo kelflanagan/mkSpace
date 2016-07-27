@@ -1,0 +1,244 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "2016-07-25T16:29:08Z",
+    "title": "mySpace"
+  },
+  "host": "api.kelly.flanagan.io",
+  "basePath": "/house",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/desired_temperature": {
+      "get": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Empty"
+            }
+          },
+          "404": {
+            "description": "404 response"
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "responses": {
+            ".*Server.*": {
+              "statusCode": "500",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+              }
+            },
+            "default": {
+              "statusCode": "200"
+            },
+            ".*NotFound.*": {
+              "statusCode": "404",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+              }
+            }
+          },
+          "requestTemplates": {
+            "application/json": "{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\"\n}"
+          },
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
+          "passthroughBehavior": "when_no_templates",
+          "httpMethod": "POST",
+          "type": "aws"
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Empty"
+            }
+          },
+          "404": {
+            "description": "404 response"
+          },
+          "405": {
+            "description": "405 response"
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "responses": {
+            ".*Server.*": {
+              "statusCode": "500",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+              }
+            },
+            "default": {
+              "statusCode": "200"
+            },
+            ".*MethodNotAllowed.*": {
+              "statusCode": "405",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Method Not Allowed\"\n}"
+              }
+            },
+            ".*NotFound.*": {
+              "statusCode": "404",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+              }
+            }
+          },
+          "requestTemplates": {
+            "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n## for each key in input json object print\n## \"key\" : \"value\" followed by a , if not last\n## else if last print print \\n. NOTE: all space\n## and carriage returns in this file are quite \n## literally passed as input to the api handler\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
+          },
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
+          "passthroughBehavior": "when_no_templates",
+          "httpMethod": "POST",
+          "type": "aws"
+        }
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Empty"
+            }
+          },
+          "404": {
+            "description": "404 response"
+          },
+          "405": {
+            "description": "405 response"
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "responses": {
+            ".*Server.*": {
+              "statusCode": "500",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+              }
+            },
+            "default": {
+              "statusCode": "200"
+            },
+            ".*MethodNotAllowed.*": {
+              "statusCode": "405",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Method Not Allowed\"\n}"
+              }
+            },
+            ".*NotFound.*": {
+              "statusCode": "404",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+              }
+            }
+          },
+          "requestTemplates": {
+            "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n## for each key in input json object print\n## \"key\" : \"value\" followed by a , if not last\n## else if last print print \\n. NOTE: all space\n## and carriage returns in this file are quite \n## literally passed as input to the api handler\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
+          },
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
+          "passthroughBehavior": "when_no_templates",
+          "httpMethod": "POST",
+          "type": "aws"
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Empty"
+            }
+          },
+          "404": {
+            "description": "404 response"
+          },
+          "405": {
+            "description": "405 response"
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "responses": {
+            ".*Server.*": {
+              "statusCode": "500",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+              }
+            },
+            "default": {
+              "statusCode": "200"
+            },
+            ".*MethodNotAllowed.*": {
+              "statusCode": "405",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Method Not Allowed\"\n}"
+              }
+            },
+            ".*NotFound.*": {
+              "statusCode": "404",
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+              }
+            }
+          },
+          "requestTemplates": {
+            "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n## for each key in input json object print\n## \"key\" : \"value\" followed by a , if not last\n## else if last print print \\n. NOTE: all space\n## and carriage returns in this file are quite \n## literally passed as input to the api handler\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
+          },
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:desired_temperature/invocations",
+	  "credentials" : "arn:aws:iam::356335180012:role/api_invoke_lambda",
+          "passthroughBehavior": "when_no_templates",
+          "httpMethod": "POST",
+          "type": "aws"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Empty": {
+      "type": "object"
+    }
+  }
+}
