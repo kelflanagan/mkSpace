@@ -22,25 +22,6 @@ def get_json_object(filename):
     return j
 
 
-""" open the file given as filename and put JSON object in it.
-parameters: filename to write object to, JSON object
-returns: True or False
-"""
-def put_json_object(filename, jo):
-    try:
-        fp = open(filename, 'w')
-    except IOError, e:
-        print('Error: ' + str(e))
-        return False
-
-    try:
-        json.dump(jo, fp)
-    except ValueError as e:
-        print('Error: ' + str(e))
-        return False
-    return True
-
-
 """ create_api() creates an API at Amazon AWS API Gateway
 parameters: filename is the name of a file in JSON format
 returns: True or False for success or failure
