@@ -5,7 +5,7 @@
     "title": "mySpace"
   },
   "host": "api.kelly.flanagan.io",
-  "basePath": "/house",
+  "basePath": "/mySapce",
   "schemes": [
     "https"
   ],
