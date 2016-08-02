@@ -7,16 +7,12 @@ import sys
 import json
 import httplib
 import base64
-import StringIO
+import time
 
-
-# global description of api name
-api_name = 'mySpace'
-
-
-""" open filename containing JSON and load it as a dictionary.
+""" get_json_object opens filename containing JSON and load it as a 
+python dictionary.
 parameters: filename of JSON file
-returns: dictionary - JSON object
+returns: dictionary - JSON object on success and None on failure
 """
 def get_json_object(filename):
     try:
@@ -25,14 +21,34 @@ def get_json_object(filename):
     except ValueError as e:
         print('Error: {}'.format(e))
         return None
+    except:
+        print('Unknown error')
+        return None
     return j
 
 
-""" create_aws_api() creates an API at Amazon AWS API Gateway
+""" put_json_object writes a python dictionary as json file to filename.
+parameters: json_object and filename - file is pretty printed
+returns True if successful, False otherwise.
+"""
+def put_json_object(json_object, filename):
+    try:
+        with open(filename, 'w+') as fp:
+            json.dump(json_object, fp, indent=2, separators=(',', ': '))
+    except TypeError as e:
+        print('Error: {}'.format(e))
+        return False
+    except:
+        print('Unknown error')
+        return False
+    return True
+
+
+""" aws_create_api() creates an API at Amazon AWS API Gateway
 parameters: filename is the name of a file in swagger 2.0 JSON format
 returns: True or False for success or failure
 """
-def create_aws_api(filename):
+def aws_create_api(filename):
     # read file and convert to bytes
     with open(filename, 'r') as fp:
         f = fp.read()
@@ -49,11 +65,11 @@ def create_aws_api(filename):
     return True
 
 
-""" delete_aws_api() deletes an API at Amazon AWS API Gateway
+""" aws_delete_api() deletes an API at Amazon AWS API Gateway
 parameters: api_id
 returns: Nothing
 """
-def delete_aws_api(api_id):
+def aws_delete_api(api_id):
     # create client to api gateway
     api = boto3.client('apigateway')
     # make request
@@ -62,11 +78,11 @@ def delete_aws_api(api_id):
         )
 
 
-""" list all APIs at AWS
+""" aws_list_apis lists all APIs at AWS
 paramters: None
 return: dictionary where each object has key=api_name and value is api_id
 """
-def list_aws_apis():
+def aws_list_apis():
     api_list = {}
     api = boto3.client('apigateway')
     response = api.get_rest_apis(limit=500)
@@ -76,69 +92,101 @@ def list_aws_apis():
     return api_list
 
 
-""" create a role in aws to give lambda functions with this role
-much access to other services. The policies can be modified in
-mySpace.cfg. aws_prefix is used to name space the roles and 
-policies.
+""" aws_attach_policy connects the policy found in the config file 
+to the role.
+parameters: role_name and config_json configuration file.
+returns: True or False
+"""
+def aws_attach_policy(j):
+    # create boto3 iam client
+    iam = boto3.client('iam')
+    # attach policy to the role
+    try:
+        iam.put_role_policy(
+            RoleName=j['api_name'] + j['aws_lambda_role'],
+            PolicyName=j['api_name'] + j['aws_role_policy'],
+            PolicyDocument=json.dumps(j['aws_policy'])
+            )
+        return True
+    except:
+        return False
+
+
+""" aws_detach_policy detaches a named policy from a role
+parameters: json config file
+returns: True or False
+"""
+def aws_detach_policy(config_json):
+    role_name = api_name + '_allow_lambda_much'
+    policy_name = api_name + 'AllowLambdaMuch'
+    iam = boto3.client('iam')
+    try:
+        iam.delete_role_policy(
+            RoleName=role_name,
+            PolicyName=policy_name
+            )
+        return True
+    except:
+        return False
+
+
+def aws_is_role(role_name):
+    iam = boto3.client('iam')
+    response = iam.get_role(
+        RoleName=role_name
+        )
+    return response
+
+
+""" aws_create_role creates a role in aws to give lambda functions 
+with this role much access to other services. The policies can be 
+modified in mySpace.cfg. 
 parameters: config file
 returns: amaxon resource number (arn)
 """
-def create_aws_role(config_json):
+def aws_create_role(j):
     arn = None
-    role_list = list_aws_roles()
-    if api_name + '_allow_lambda_much' in role_list:
-        arn = role_list[api_name + '_allow_lambda_much']
+    role_list = aws_list_roles()
+    if j['api_name'] + j['aws_lambda_role'] in role_list:
+        arn = role_list[j['api_name'] + j['aws_lambda_role']]
 
     # create boto3 iam client
     iam = boto3.client('iam')
 
     # create role if needed
     if arn == None:
-        print('creating new role')
         try:
             response = iam.create_role(
                 Path='/',
-                RoleName=api_name + '_allow_lambda_much',
-                AssumeRolePolicyDocument=json.dumps(config_json['trust_policy'])
+                RoleName=j['api_name'] + j['aws_lambda_role'],
+                AssumeRolePolicyDocument=json.dumps(j['trust_policy'])
                 )
             arn = response['Role']['Arn']
         except botocore.exceptions.ClientError as e:
             print "Unexpected error: %s" % e
             return None
-
-    # attach policy to the role
-    response = iam.put_role_policy(
-        RoleName=api_name + '_allow_lambda_much',
-        PolicyName=api_name + 'AllowLambdaMuch',
-        PolicyDocument=json.dumps(config_json['aws_policy'])
-        )
-
-    print(arn)
     return arn
 
 
-""" deletes the role named in parameter and its inline policy
+""" aws_delete_role deletes the role named in parameter.
 parameters: role_name to delete
-            policy name of inline policy
 returns: Nothing
 """
-def delete_aws_role(role_name, policy_name):
+def aws_delete_role(j):
     iam = boto3.client('iam')
-    iam.delete_role_policy(
-        RoleName=role_name,
-        PolicyName=policy_name
-        )
-    iam.delete_role(
-        RoleName=role_name
-        )
+    try:
+        iam.delete_role(RoleName=j['api_name'] + j['aws_lambda_role'])
+        return True
+    except:
+        return False
 
 
-""" list the roles at aws and create a dictionary of their names and
-associated arn's.
+""" aws_list_roles lists the roles at aws and create a dictionary of 
+their names and associated arn's.
 paramters: none
 returns: dictionary of roles and their arn's.
 """
-def list_aws_roles():
+def aws_list_roles():
     role_list = {}
     # create boto3 iam client
     iam = boto3.client('iam')
@@ -159,13 +207,13 @@ def list_aws_roles():
     return role_list
 
 
-""" create an aws lambda function. The python module is contained in a zip
-file stored at github.com.
+""" aws_create_function creates an aws lambda function. 
+The python module is contained in a zip file stored at github.com.
 paramters: config_json where the github info is found 
            role_arn to attach to this lambda function
 returns: lambds function ARN
 """
-def create_aws_function(config_json, role_arn):
+def aws_create_function(config_json, role_arn):
     # get zip file from github
     success, zip_file = get_github_zipfile(
         config_json['github_file'], 
@@ -177,23 +225,30 @@ def create_aws_function(config_json, role_arn):
 
     # create boto3 lambda client
     l = boto3.client('lambda')
-    response = l.create_function(
-        FunctionName=api_name,
-        Runtime='python2.7',
-        Role=role_arn,
-        Handler=api_name + '.' + api_name,
-        Code={"ZipFile" : zip_file},
-        Description='mySpace is the installer app for mySpace services'
-        )
-    return response['FunctionArn']
-        
+    retries = 2
+    while retries > 0:
+        try:
+            response = l.create_function(
+                FunctionName=api_name,
+                Runtime='python2.7',
+                Role=role_arn,
+                Handler=config_json['api_name'] + '.' + config_json['api_name'],
+                Code={"ZipFile" : zip_file},
+                Description='mySpace is the installer app for mySpace services'
+                )
+            return response['FunctionArn']
+        except:
+            retries = retries - 1
+            time.sleep(5)
+    return None
 
-""" updates the code of an aws lambda function. The python module is 
-contained in a zip file stored at github.com.
+
+""" aws_update_function updates the code of an aws lambda function. 
+The python module is contained in a zip file stored at github.com.
 paramters: config_json where the github info is found 
 returns: lambds function ARN
 """
-def update_aws_function(config_json):
+def aws_update_function(config_json):
     # get zip file from github
     success, zip_file = get_github_zipfile(
         config_json['github_file'], 
@@ -206,17 +261,17 @@ def update_aws_function(config_json):
     # create boto3 lambda client
     l = boto3.client('lambda')
     response = l.update_function_code(
-        FunctionName=api_name,
+        FunctionName=config_json['api_name'],
         ZipFile=zip_file
         )
     return response['FunctionArn']
 
 
-""" delete_aws_function() deletes aAmazon AWS lambda function
+""" aws_delete_function() deletes aAmazon AWS lambda function
 parameters: function arn
 returns: Nothing
 """
-def delete_aws_function(function_arn):
+def aws_delete_function(function_arn):
     # create client to api gateway
     l = boto3.client('lambda')
     # make request
@@ -230,7 +285,7 @@ associated arn's.
 paramters: none
 returns: dictionary of functions and their arn's.
 """
-def list_aws_functions():
+def aws_list_functions():
     function_list = {}
     # create boto3 lambda client
     l = boto3.client('lambda')
@@ -283,15 +338,15 @@ def get_github_zipfile(filename, repo, repo_owner):
     return True, zip_file
 
 
-def tell_user(host_name):
+def tell_user(j):
     # give user feedback on whats going to take place
     # given the setup file contents
-    print('Creating {} API at Amazon AWS'.format(api_name))
-    print('Also installing lambda function {}'.format(api_name))
+    print('Creating {} API at Amazon AWS'.format(j['api_name']))
+    print('Also installing lambda function {}'.format(j['api_name']))
     print('{} will be accessible via https://{}/{}'.format(
-            api_name, 
-            host_name, 
-            api_name
+            j['api_name'], 
+            j['host_name'], 
+            j['api_name']
             )
           ) 
     return True
@@ -307,10 +362,21 @@ jo = get_json_object('mkSpace.cfg')
 if jo == None:
     exit()
 
+# get API config file
+api = get_json_object(jo['api_json_file'])
+if api == None:
+    exit()
+
+# adjust title in API config file
+api_name = jo['api_name']
+api['info']['title'] = api_name
+if not put_json_object(api, jo['api_json_file']):
+    exit()
+
 # create API and infrastructure
 if sys.argv[1] == 'create':
     # make sure we don't recreate our api
-    if api_name in list_aws_apis():
+    if api_name in aws_list_apis():
         print(
             'API {} exists. Choose a new name or delete this one.'
             .format(api_name)
@@ -318,20 +384,24 @@ if sys.argv[1] == 'create':
         exit()
 
     # let the user know what we're going to do
-    if not tell_user(jo['host']):
+    if not tell_user(jo):
         exit()
 
     # create role for lambda function
-    role_arn = create_aws_role(jo)
+    role_arn = aws_create_role(jo)
     if role_arn == None:
         exit()
 
+    # attach policy
+    if not aws_attach_policy(jo):
+        exit()
+
     # get list of current lambda functions
-    function_list = list_aws_functions()
+    function_list = aws_list_functions()
 
     # if the function we intend on installing isn't already there install it
     if api_name not in function_list:
-        lambda_arn = create_aws_function(jo, role_arn)
+        lambda_arn = aws_create_function(jo, role_arn)
         if lambda_arn != None:
             print('Install successful')
         else:
@@ -340,32 +410,33 @@ if sys.argv[1] == 'create':
 
     # update code since the function exists
     else:
-        lambda_arn = update_aws_function(jo)
+        lambda_arn = aws_update_function(jo)
         if lambda_arn != None:
             print('Update successful')
         else:
             print('Update failed')
             exit()
 
-    success = create_aws_api(jo['api_json_file'])
+    success = aws_create_api(jo['api_json_file'])
 
 # delete API and infrastructure
 elif sys.argv[1] == 'delete':
-    apis = list_aws_apis()
+    apis = aws_list_apis()
     if api_name in apis:
         print('Deleteing API {}.'.format(api_name))
-        delete_aws_api(apis[api_name])
-    function_list = list_aws_functions()
+        aws_delete_api(apis[api_name])
+    function_list = aws_list_functions()
 
     if api_name in function_list:
         print('Deleteing Lambda Function {}.'.format(api_name))
-        delete_aws_function(function_list[api_name])
+        aws_delete_function(function_list[api_name])
 
-    delete_aws_role(
-        api_name + '_allow_lambda_much',
-        api_name + 'AllowLambdaMuch'
-        )
-    
+    if not aws_detach_policy(jo):
+        print('Couldn\'t detach policy')
+
+    if not aws_delete_role(jo):
+        print('Couldn\'t delete role')
+
     print('Successfully deleted mySpace service')
 
 # else bad command
