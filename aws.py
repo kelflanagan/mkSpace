@@ -221,7 +221,7 @@ def create_function(cfg_json, role_arn):
     # we retry here because the creation of an aws role and attached
     # policy can take several seconds and the create function fails if
     # it is created before the role and policy are in place
-    retries = 3
+    retries = 5
     while retries > 0:
         try:
             response = l.create_function(
