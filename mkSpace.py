@@ -45,6 +45,7 @@ def put_json_object(json_object, filename):
     return True
 
 
+""" inform the user of action to be taken """
 def tell_user(cfg_json):
     # give user feedback on whats going to take place
     # given the setup file contents
@@ -58,6 +59,11 @@ def tell_user(cfg_json):
           ) 
 
 
+""" delete_mySpace() deletes the role, policy, lambda function
+and the API.
+parameters: config_json
+returns: True on success and False on failure
+"""
 def delete_mySpace(config_json):
     apis = aws.list_apis()
     if apis == None:
@@ -85,6 +91,11 @@ def delete_mySpace(config_json):
     return True
 
 
+""" create_mySpace() creates the role, policy, lambda function
+and the API.
+parameters: config_json
+returns: True on success and False on failure
+"""
 def create_mySpace(config_json):
     # make sure we don't recreate our api
     apis = aws.list_apis()
@@ -132,6 +143,11 @@ def create_mySpace(config_json):
     return True
 
 
+""" update_mySpace_cod() updates just the code in an existing lambda 
+function.
+parameters: config_json
+returns: True on success and False on failure
+"""
 def update_mySpace_code(config_json):
     # make sure we don't recreate our api
     apis = aws.list_apis()
@@ -158,44 +174,48 @@ def update_mySpace_code(config_json):
     return True
 
 
+#########
+#
+# begin here
+#
+#########
 # read command line arguments and give user feedback
 if len(sys.argv) != 2 :
     print('usage : mkSpace create | delete')
     exit()
 
 # get configuration object
-jo = get_json_object('mkSpace.cfg')
-if jo == None:
+config_json = get_json_object('mkSpace.cfg')
+if config_json == None:
     exit()
 
 # get API config file
-api = get_json_object(jo['api_json_file'])
+api = get_json_object(config_json['api_json_file'])
 if api == None:
     exit()
 
 # adjust title in API config file
-api_name = jo['api_name']
-api['info']['title'] = api_name
-if not put_json_object(api, jo['api_json_file']):
+api['info']['title'] = config_json['api_name']
+if not put_json_object(api, config_json['api_json_file']):
     exit()
 
 # create API and infrastructure
 if sys.argv[1] == 'create':
-    if create_mySpace(jo):
+    if create_mySpace(config_json):
         print('Install successful')
     else:
         print('Install failed')
 
 # update lambda function code
 elif sys.argv[1] == 'update':
-    if update_mySpace_code(jo):
+    if update_mySpace_code(config_json):
         print('Update successful')
     else:
         print('Update failed')
 
 # delete API and infrastructure
 elif sys.argv[1] == 'delete':
-    if delete_mySpace(jo):
+    if delete_mySpace(config_json):
         print('Successfully deleted mySpace service')
     else:
         print('Failed to delete mySpace service')
