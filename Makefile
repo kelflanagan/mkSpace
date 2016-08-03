@@ -1,5 +1,5 @@
 MODULE = mkSpace
-SRC = $(MODULE).py
+SRC = $(MODULE).py aws.py github.py
 CONFIG = $(MODULE).cfg api.json
 m='latest incremental changes'
 
@@ -14,4 +14,4 @@ commit:		$(MODULE).zip
 
 clean:		
 		rm -f $(MODULE).zip
-		rm -f *~
+		rm -f *~ *.pyc
