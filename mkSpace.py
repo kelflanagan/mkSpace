@@ -4,7 +4,7 @@ import aws
 import httplib
 import json
 import sys
-
+import time
 
 """ get_json_object opens a file containing JSON and loads it as a 
 python dictionary.
@@ -82,11 +82,40 @@ def delete_mySpace(config_json):
         if not aws.delete_function(function_list[config_json['api_name']]):
             return False
 
-    if not aws.detach_policy(config_json):
+    # detach policies from roles
+    # list local policies
+    policy_list = aws.list_policies()
+    if policy_list == None:
         return False
+    # detach them
+    for policy in policy_list:
+        if policy.startswith(config_json['api_name']):
+            roles = aws.list_roles_attached_to_policy(policy_list[policy])
+            if roles == None:
+                return False
+            for role in roles:
+                if not aws.detach_managed_policy(role, roles[role]):
+                    return False
+            
+    # list roles
+    role_list = aws.list_roles()
+    if role_list == None:
+        return False
+    # delete them
+    for role in role_list:
+        if role.startswith(config_json['api_name']):
+            if not aws.delete_role(role):
+                return False
 
-    if not aws.delete_role(config_json):
+    # list local policies
+    policy_list = aws.list_policies()
+    if policy_list == None:
         return False
+    # delete them
+    for policy in policy_list:
+        if policy.startswith(config_json['api_name']):
+            if not aws.delete_policy(policy_list[policy]):
+                return False
 
     return True
 
@@ -112,12 +141,27 @@ def create_mySpace(config_json):
     tell_user(config_json)
 
     # create role for lambda function
-    role_arn = aws.create_role(config_json, '/')
-    if role_arn == None:
+    lambda_role_arn = aws.create_role(
+        config_json['api_name'] + config_json['aws_lambda_role'],
+        config_json['aws_assume_role']
+        )
+    if lambda_role_arn == None:
         return False
 
-    # attach policy
-    if not aws.attach_policy(config_json):
+    # create policy mySpaceAllowMuch for lambda function
+    allow_much_policy_arn = aws.create_policy(
+        config_json['api_name'] + config_json['aws_lambda_role_policy'],
+        config_json['aws_allow_much']
+        )
+    if allow_much_policy_arn == None:
+        return False
+
+    # attach managed policy to role
+    success = aws.attach_managed_policy(
+        config_json['api_name'] + config_json['aws_lambda_role'],
+        allow_much_policy_arn
+        )
+    if not success:
         return False
 
     # get list of current lambda functions
@@ -127,7 +171,7 @@ def create_mySpace(config_json):
 
     # if the function we intend on installing isn't already there install it
     if config_json['api_name'] not in function_list:
-        lambda_arn = aws.create_function(config_json, role_arn)
+        lambda_arn = aws.create_function(config_json, lambda_role_arn)
         if lambda_arn == None:
             return False
     else:
@@ -135,6 +179,31 @@ def create_mySpace(config_json):
             '{} exists, consider mkSpace update'
             .format(config_json['api_name'])
             )
+        return False
+
+    # create role for API Gateway to invoke lambda functions
+    api_role_arn = aws.create_role(
+        config_json['api_name'] + config_json['aws_api_role'],
+        config_json['aws_assume_role']
+        )
+    if lambda_role_arn == None:
+        return False
+
+    # create policy mySpaceInvokeLambda for apigateway to 
+    # invoke lambda function
+    invoke_lambda_policy_arn = aws.create_policy(
+        config_json['api_name'] + config_json['aws_api_role_policy'],
+        config_json['aws_lambda_invoke']
+        )
+    if invoke_lambda_policy_arn == None:
+        return False
+    
+    # attach managed policy to role
+    success = aws.attach_managed_policy(
+        config_json['api_name'] + config_json['aws_api_role'],
+        invoke_lambda_policy_arn
+        )
+    if not success:
         return False
 
     if not aws.create_api(config_json['api_json_file']):

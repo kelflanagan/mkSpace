@@ -73,42 +73,152 @@ def list_apis():
     return api_list
 
 
-""" attach_policy connects the policy found in the config file 
-to the role.
-parameters: role_name and cfg_json configuration file.
-returns: True or False
+""" list the policies and create a dictionary of their names and
+associated arn's.
+paramters: none
+returns: dictionary of policies and their arn's.
 """
-def attach_policy(cfg_json):
-    # create boto3 iam client
+def list_policies():
+    policy_list = {}
     iam = boto3.client('iam')
-    # attach policy to the role
+    more_pages = True
     try:
-        iam.put_role_policy(
-            RoleName=cfg_json['api_name'] + cfg_json['aws_lambda_role'],
-            PolicyName=cfg_json['api_name'] + cfg_json['aws_role_policy'],
-            PolicyDocument=json.dumps(cfg_json['aws_policy'])
+        response = iam.list_policies(
+            Scope='Local'
             )
     except botocore.exceptions.ClientError as e:
-        print "attach_policy(): %s" % e
+        print "list_policies(): %s" % e
+        return None
+
+    while more_pages:
+        for policy in response['Policies']:
+            policy_list[policy['PolicyName']] = policy['Arn']
+        if response['IsTruncated']:
+            try:
+                response = iam.list_policies(
+                    Marker=response['Marker'],
+                    Scope='Local'
+                    )
+            except botocore.exceptions.ClientError as e:
+                print "list_policies(): %s" % e
+                return None
+        else:
+            more_pages = False
+
+    return policy_list
+
+
+""" list_roles_attached_to_policy() finds roles attached to a policy arn
+paramters: policy_arn
+returns: dictionary with keys of role names and values of attached policy
+"""
+def list_roles_attached_to_policy(policy_arn):
+    role_list = {}
+    # create boto3 iam client
+    iam = boto3.client('iam')
+    more_pages = True
+    try:
+        response = iam.list_entities_for_policy(
+            PolicyArn=policy_arn
+            )
+    except botocore.exceptions.ClientError as e:
+        print "list_roles_attached_to_policy(): %s" % e
+        return None
+
+    while more_pages:
+        for role in response['PolicyRoles']:
+            role_list[role['RoleName']] = policy_arn
+        if response['IsTruncated']:
+            try:
+                response = iam.list_entities_for_policy(
+                    PolicyArn=policy_arn,
+                    Marker=response['Marker']
+                    )
+            except botocore.exceptions.ClientError as e:
+                print "list_entities_for_policy(): %s" % e
+                return None
+        else:
+            more_pages = False
+
+    return role_list
+
+
+""" create_policy() create an aws policy that can be associated 
+with various roles.
+paramters: JSON description of policy and policy_name
+returns: policy ARN on success and None on failure
+"""
+def create_policy(policy_name, policy):
+    # create boto3 iam client
+    iam = boto3.client('iam')
+    # create policy
+    try:
+        response = iam.create_policy(
+            PolicyName=policy_name,
+            Path='/',
+            PolicyDocument=json.dumps(policy),
+            Description='policy used for mySpace application'
+            )
+    except botocore.exceptions.ClientError as e:
+        print "create_policy(): %s" % e
+        return None
+    return response['Policy']['Arn']
+
+
+""" delete_policy() deletes an aws policy
+paramters: Arn of policy to remove
+returns: True on success and Falae on failure
+"""
+def delete_policy(policy_arn):
+    # create boto3 iam client
+    iam = boto3.client('iam')
+    # create policy
+    try:
+        iam.delete_policy(
+            PolicyArn=policy_arn
+            )
+    except botocore.exceptions.ClientError as e:
+        print "delete_policy(): %s" % e
         return False
     return True
 
 
-""" detach_policy detaches a named policy from a role
-parameters: json config file
+""" attach_managed_policy connects the policy with an Arn
+to the named role.
+parameters: role_name and policy Arn
 returns: True or False
 """
-def detach_policy(cfg_json):
-    role_name = cfg_json['api_name'] + '_allow_lambda_much'
-    policy_name = cfg_json['api_name'] + 'AllowLambdaMuch'
+def attach_managed_policy(role_name, policy_arn):
+    # create boto3 iam client
     iam = boto3.client('iam')
+    # attach policy to the role
     try:
-        iam.delete_role_policy(
+        iam.attach_role_policy(
             RoleName=role_name,
-            PolicyName=policy_name
+            PolicyArn=policy_arn
             )
     except botocore.exceptions.ClientError as e:
-        print "detach_policy(): %s" % e
+        print "attach_managed_policy(): %s" % e
+        return False
+    return True
+
+
+""" detach_managed_policy disconnects the policy with an Arn
+from the named role.
+parameters: role_name and policy Arn
+returns: True or False
+"""
+def detach_managed_policy(role_name, policy_arn):
+    # create boto3 iam client
+    iam = boto3.client('iam')
+    # attach policy to the role
+    try:
+        iam.detach_role_policy(
+            RoleName=role_name,
+            PolicyArn=policy_arn
+            )
+    except botocore.exceptions.ClientError as e:
+        print "detach_managed_policy(): %s" % e
         return False
     return True
 
@@ -119,41 +229,36 @@ modified in mySpace.cfg.
 parameters: config file
 returns: amaxon resource number (arn)
 """
-def create_role(cfg_json, path):
-    arn = None
-    role_list = list_roles(path)
+def create_role(role_name, trust_policy):
+    role_list = list_roles()
     if role_list == None:
         return None
-    if cfg_json['api_name'] + cfg_json['aws_lambda_role'] in role_list:
-        arn = role_list[cfg_json['api_name'] + cfg_json['aws_lambda_role']]
+    if role_name in role_list:
+        return None
 
     # create boto3 iam client
     iam = boto3.client('iam')
-
-    # create role if needed
-    if arn == None:
-        try:
-            response = iam.create_role(
-                Path=path,
-                RoleName=cfg_json['api_name'] + cfg_json['aws_lambda_role'],
-                AssumeRolePolicyDocument=json.dumps(cfg_json['trust_policy'])
-                )
-            arn = response['Role']['Arn']
-        except botocore.exceptions.ClientError as e:
-            print "create_role(): %s" % e
-            return None
-    return arn
+    # create role
+    try:
+        response = iam.create_role(
+            RoleName=role_name,
+            AssumeRolePolicyDocument=json.dumps(trust_policy)
+            )
+    except botocore.exceptions.ClientError as e:
+        print "create_role(): %s" % e
+        return None
+    return response['Role']['Arn']
 
 
 """ delete_role deletes the role named in parameter.
 parameters: role_name to delete
 returns: Nothing
 """
-def delete_role(cfg_json):
+def delete_role(role_name):
     iam = boto3.client('iam')
     try:
         iam.delete_role(
-            RoleName=cfg_json['api_name'] + cfg_json['aws_lambda_role']
+            RoleName=role_name
             )
     except botocore.exceptions.ClientError as e:
         print "aws_delete_role(): %s" % e
@@ -163,19 +268,17 @@ def delete_role(cfg_json):
 
 """ list_roles lists the roles at aws and create a dictionary of 
 their names and associated arn's.
-paramters: path
+paramters: None
 returns: dictionary of roles and their arn's.
 """
-def list_roles(path):
+def list_roles():
     role_list = {}
     # create boto3 iam client
     iam = boto3.client('iam')
 
     more_pages = True
     try:
-        response = iam.list_roles(
-            PathPrefix=path
-            )
+        response = iam.list_roles()
     except botocore.exceptions.ClientError as e:
         print "list_roles(): %s" % e
         return None
@@ -186,8 +289,7 @@ def list_roles(path):
         if response['IsTruncated']:
             try:
                 response = iam.list_roles(
-                    PathPrefix=path,
-                    Marker=response['Marker'],
+                    Marker=response['Marker']
                     )
             except botocore.exceptions.ClientError as e:
                 print "list_roles(): %s" % e
@@ -300,9 +402,7 @@ def list_functions():
 
     more_pages = True
     try:
-        response = l.list_functions(
-            MaxItems=2
-            )
+        response = l.list_functions()
     except botocore.exceptions.ClientError as e:
         print "list_functions(): %s" % e
         return None
@@ -313,8 +413,7 @@ def list_functions():
         if 'NextMarker' in response:
             try:
                 response = l.list_functions(
-                    Marker=response['NextMarker'],
-                    MaxItems=2
+                    Marker=response['NextMarker']
                     )
             except botocore.exceptions.ClientError as e:
                 print "list_functions(): %s" % e
