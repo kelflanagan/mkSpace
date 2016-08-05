@@ -1,6 +1,5 @@
 import boto3
 import botocore
-import github
 import json
 import time
 
@@ -304,16 +303,8 @@ paramters: cfg_json where the github info is found role_arn to
 attach to this lambda function
 returns: lambds function ARN
 """
-def create_function(cfg_json, role_arn):
+def create_function(name, role_arn, zip_file, description):
     e = None
-    # get zip file from github
-    success, zip_file = github.get_zipfile(
-        cfg_json['github_file'], 
-        cfg_json['github_repo'], 
-        cfg_json['github_repo_owner']
-        )
-    if not success:
-        return None
 
     # create boto3 lambda client
     l = boto3.client('lambda')
@@ -325,12 +316,12 @@ def create_function(cfg_json, role_arn):
     while retries > 0:
         try:
             response = l.create_function(
-                FunctionName=cfg_json['api_name'],
+                FunctionName=name,
                 Runtime='python2.7',
                 Role=role_arn,
-                Handler=cfg_json['api_name'] + '.' + cfg_json['api_name'],
+                Handler=name + '.' + name,
                 Code={"ZipFile" : zip_file},
-                Description='mySpace is the installer app for mySpace services'
+                Description=description
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
@@ -346,21 +337,12 @@ The python module is contained in a zip file stored at github.com.
 paramters: cfg_json where the github info is found 
 returns: lambds function ARN
 """
-def update_function(cfg_json):
-    # get zip file from github
-    success, zip_file = github.get_zipfile(
-        cfg_json['github_file'], 
-        cfg_json['github_repo'], 
-        cfg_json['github_repo_owner']
-        )
-    if not success:
-        return None
-
+def update_function(name, zip_file):
     # create boto3 lambda client
     l = boto3.client('lambda')
     try:
         response = l.update_function_code(
-            FunctionName=cfg_json['api_name'],
+            FunctionName=name,
             ZipFile=zip_file
             )
     except botocore.exceptions.ClientError as e:

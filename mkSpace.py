@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import aws
+import github
 import httplib
 import json
 import sys
@@ -221,7 +222,28 @@ def create_mySpace(config_json):
             )
         )
 
-    lambda_arn = aws.create_function(config_json, lambda_role_arn)
+    # get function code in zip format from github repo
+    success, zip_file = github.get_zipfile(
+        config_json['github_file'], 
+        config_json['github_repo'], 
+        config_json['github_repo_owner']
+        )
+    if not success:
+        return False
+    print(
+        'Obtained {} from github repo {}'
+        .format(
+            config_json['github_file'],
+            config_json['github_repo']
+            )
+        )
+
+    lambda_arn = aws.create_function(
+        config_json['api_name'],
+        lambda_role_arn,
+        zip_file,
+        'mySpace is the installer app for mySpace services'
+        )
     if lambda_arn == None:
         return False
     print('Created lambda function {}'.format(config_json['api_name']))
@@ -282,27 +304,32 @@ parameters: config_json
 returns: True on success and False on failure
 """
 def update_mySpace_code(config_json):
-    # make sure we don't recreate our api
-    apis = aws.list_apis()
-    if apis == None:
+    # get function code in zip format from github repo
+    success, zip_file = github.get_zipfile(
+        config_json['github_file'], 
+        config_json['github_repo'], 
+        config_json['github_repo_owner']
+        )
+    if not success:
         return False
-    if config_json['api_name'] not in apis:
-        print(
-            '{} API does not exist. consider mkSpace create'
-            .format(config_json['api_name'])
+    print(
+        'Obtained {} from github repo {}'
+        .format(
+            config_json['github_file'],
+            config_json['github_repo']
             )
-        return False
+        )
 
-    # get list of current lambda functions
-    function_list = aws.list_functions()
-    if function_list == None:
+    lambda_arn = aws.update_function(
+        config_json['api_name'],
+        zip_file
+        )
+    if lambda_arn == None:
         return False
-
-    # if the function we intend on updating isn't already there return
-    if config_json['api_name'] in function_list:
-        lambda_arn = aws.update_function(config_json)
-        if lambda_arn == None:
-            return False
+    print(
+        'Updated code for lambda function {}'
+        .format(config_json['api_name'])
+        )
 
     return True
 
