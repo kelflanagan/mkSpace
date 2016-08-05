@@ -69,18 +69,23 @@ def delete_mySpace(config_json):
     if apis == None:
         return False
     if config_json['api_name'] in apis:
-        print('Deleteing {} API.'.format(config_json['api_name']))
-        if not aws.delete_api(apis[config_json['api_name']]):
-            return False
+        if aws.delete_api(apis[config_json['api_name']]):
+            print('Deleted {} API.'.format(config_json['api_name']))
+        else:
+            print('Failed to delete {} API.'.format(config_json['api_name']))
 
     function_list = aws.list_functions()
     if function_list == None:
         return False
 
     if config_json['api_name'] in function_list:
-        print('Deleteing Lambda Function {}.'.format(config_json['api_name']))
-        if not aws.delete_function(function_list[config_json['api_name']]):
-            return False
+        if aws.delete_function(function_list[config_json['api_name']]):
+            print('Deleted Lambda Function {}.'.format(config_json['api_name']))
+        else:
+            print(
+                'Failed to delete Lambda Function {}.'
+                .format(config_json['api_name'])
+                )
 
     # detach policies from roles
     # list local policies
@@ -90,12 +95,18 @@ def delete_mySpace(config_json):
     # detach them
     for policy in policy_list:
         if policy.startswith(config_json['api_name']):
-            roles = aws.list_roles_attached_to_policy(policy_list[policy])
+            roles = aws.list_roles_with_attached_policy(policy_list[policy])
             if roles == None:
                 return False
             for role in roles:
-                if not aws.detach_managed_policy(role, roles[role]):
-                    return False
+                if aws.detach_managed_policy(role, roles[role]):
+                    print(
+                        'Detached policy {} from role {}'
+                        .format(policy, role))
+                else:
+                    print(
+                        'Failed to detach policy {} from role {}'
+                        .format(policy, role))
             
     # list roles
     role_list = aws.list_roles()
@@ -104,8 +115,10 @@ def delete_mySpace(config_json):
     # delete them
     for role in role_list:
         if role.startswith(config_json['api_name']):
-            if not aws.delete_role(role):
-                return False
+            if aws.delete_role(role):
+                print('Deleted role {}'.format(role))
+            else:
+                print('Failed to delete role {}'.format(role))
 
     # list local policies
     policy_list = aws.list_policies()
@@ -114,11 +127,54 @@ def delete_mySpace(config_json):
     # delete them
     for policy in policy_list:
         if policy.startswith(config_json['api_name']):
-            if not aws.delete_policy(policy_list[policy]):
-                return False
+            if aws.delete_policy(policy_list[policy]):
+                print('Deleted policy {}'.format(policy))
+            else:
+                print('Failed to delete policy {}'.format(policy))
 
     return True
 
+
+""" is_api_remnants() checks to see if any parts of an installation 
+remain. If there are remnants True is returned.
+paramters: api_name
+returns: True if remnanats exist, False if they do not, and None on error
+"""
+def is_api_remnant(api_name):
+    # check for API Gateway pieces
+    apis = aws.list_apis()
+    if apis == None:
+        return None
+    if api_name in apis:
+        return True
+
+    # check for roles
+    roles = aws.list_roles()
+    if roles == None:
+        return None
+    for role in roles:
+        if role.startswith(api_name):
+            return True
+        
+    # check for policies
+    policies = aws.list_policies()
+    if policies == None:
+        return None
+    for policy in policies:
+        if policy.startswith(api_name):
+            return True
+
+    # check for lambda functions
+    function_list = aws.list_functions()
+    if function_list == None:
+        return None
+
+    for function in function_list:
+        if function.startswith(api_name):
+            return True
+
+    return False
+    
 
 """ create_mySpace() creates the role, policy, lambda function
 and the API.
@@ -126,20 +182,6 @@ parameters: config_json
 returns: True on success and False on failure
 """
 def create_mySpace(config_json):
-    # make sure we don't recreate our api
-    apis = aws.list_apis()
-    if apis == None:
-        return False
-    if config_json['api_name'] in apis:
-        print(
-            '{} API exists. Choose a new name or delete this one.'
-            .format(config_json['api_name'])
-            )
-        return False
-
-    # let the user know what we're going to do
-    tell_user(config_json)
-
     # create role for lambda function
     lambda_role_arn = aws.create_role(
         config_json['api_name'] + config_json['aws_lambda_role'],
@@ -147,6 +189,10 @@ def create_mySpace(config_json):
         )
     if lambda_role_arn == None:
         return False
+    print(
+        'Created role {}'
+        .format(config_json['api_name'] + config_json['aws_lambda_role'])
+        )
 
     # create policy mySpaceAllowMuch for lambda function
     allow_much_policy_arn = aws.create_policy(
@@ -155,6 +201,10 @@ def create_mySpace(config_json):
         )
     if allow_much_policy_arn == None:
         return False
+    print(
+        'Created policy {}'
+        .format(config_json['api_name'] + config_json['aws_lambda_role_policy'])
+        )
 
     # attach managed policy to role
     success = aws.attach_managed_policy(
@@ -163,23 +213,18 @@ def create_mySpace(config_json):
         )
     if not success:
         return False
-
-    # get list of current lambda functions
-    function_list = aws.list_functions()
-    if function_list == None:
-        return False
-
-    # if the function we intend on installing isn't already there install it
-    if config_json['api_name'] not in function_list:
-        lambda_arn = aws.create_function(config_json, lambda_role_arn)
-        if lambda_arn == None:
-            return False
-    else:
-        print(
-            '{} exists, consider mkSpace update'
-            .format(config_json['api_name'])
+    print(
+        'Attached policy {} to role {}'
+        .format(
+            config_json['api_name'] + config_json['aws_lambda_role_policy'],
+            config_json['api_name'] + config_json['aws_lambda_role']
             )
+        )
+
+    lambda_arn = aws.create_function(config_json, lambda_role_arn)
+    if lambda_arn == None:
         return False
+    print('Created lambda function {}'.format(config_json['api_name']))
 
     # create role for API Gateway to invoke lambda functions
     api_role_arn = aws.create_role(
@@ -188,6 +233,10 @@ def create_mySpace(config_json):
         )
     if lambda_role_arn == None:
         return False
+    print(
+        'Created role {}'
+        .format(config_json['api_name'] + config_json['aws_api_role'])
+        )
 
     # create policy mySpaceInvokeLambda for apigateway to 
     # invoke lambda function
@@ -197,6 +246,10 @@ def create_mySpace(config_json):
         )
     if invoke_lambda_policy_arn == None:
         return False
+    print(
+        'Created policy {}'
+        .format(config_json['api_name'] + config_json['aws_api_role_policy'])
+        )
     
     # attach managed policy to role
     success = aws.attach_managed_policy(
@@ -205,9 +258,20 @@ def create_mySpace(config_json):
         )
     if not success:
         return False
+    print(
+        'Attached policy {} to role {}'
+        .format(
+            config_json['api_name'] + config_json['aws_api_role_policy'],
+            config_json['api_name'] + config_json['aws_api_role']
+            )
+        )
 
     if not aws.create_api(config_json['api_json_file']):
         return False
+    print(
+        'Created API {}'
+        .format(config_json['api_name'])
+        )
 
     return True
 
@@ -270,6 +334,13 @@ if not put_json_object(api, config_json['api_json_file']):
 
 # create API and infrastructure
 if sys.argv[1] == 'create':
+    if is_api_remnant(config_json['api_name']):
+        print(
+            '{} API, or a remnant of it, exist. Use mkSpace delete'
+            .format(config_json['api_name'])
+            )
+        exit()
+
     if create_mySpace(config_json):
         print('Install successful')
     else:
@@ -277,6 +348,13 @@ if sys.argv[1] == 'create':
 
 # update lambda function code
 elif sys.argv[1] == 'update':
+    if not is_api_remnant(config_json['api_name']):
+        print(
+            '{} API does not exist. Use mkSpace create'
+            .format(config_json['api_name'])
+            )
+        exit()
+
     if update_mySpace_code(config_json):
         print('Update successful')
     else:
@@ -284,6 +362,13 @@ elif sys.argv[1] == 'update':
 
 # delete API and infrastructure
 elif sys.argv[1] == 'delete':
+    if not is_api_remnant(config_json['api_name']):
+        print(
+            '{} API does not exist. Use mkSpace create'
+            .format(config_json['api_name'])
+            )
+        exit()
+
     if delete_mySpace(config_json):
         print('Successfully deleted mySpace service')
     else:

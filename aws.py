@@ -76,7 +76,7 @@ def list_apis():
 """ list the policies and create a dictionary of their names and
 associated arn's.
 paramters: none
-returns: dictionary of policies and their arn's.
+returns: dictionary of policies and their arn's. None on failure
 """
 def list_policies():
     policy_list = {}
@@ -112,7 +112,7 @@ def list_policies():
 paramters: policy_arn
 returns: dictionary with keys of role names and values of attached policy
 """
-def list_roles_attached_to_policy(policy_arn):
+def list_roles_with_attached_policy(policy_arn):
     role_list = {}
     # create boto3 iam client
     iam = boto3.client('iam')
@@ -143,9 +143,8 @@ def list_roles_attached_to_policy(policy_arn):
     return role_list
 
 
-""" create_policy() create an aws policy that can be associated 
-with various roles.
-paramters: JSON description of policy and policy_name
+""" create_policy() create an aws policy
+paramters: policy_name and JSON description of policy
 returns: policy ARN on success and None on failure
 """
 def create_policy(policy_name, policy):
@@ -183,7 +182,7 @@ def delete_policy(policy_arn):
     return True
 
 
-""" attach_managed_policy connects the policy with an Arn
+""" attach_managed_policy() connects policy (policy_arn)
 to the named role.
 parameters: role_name and policy Arn
 returns: True or False
@@ -223,11 +222,10 @@ def detach_managed_policy(role_name, policy_arn):
     return True
 
 
-""" create_role creates a role in aws to give lambda functions 
-with this role much access to other services. The policies can be 
-modified in mySpace.cfg. 
-parameters: config file
-returns: amaxon resource number (arn)
+""" create_role() creates a role in aws with a trust policy defined
+in the aws JSON format
+parameters: role_name and trust_policy
+returns: role's arn
 """
 def create_role(role_name, trust_policy):
     role_list = list_roles()
@@ -250,9 +248,9 @@ def create_role(role_name, trust_policy):
     return response['Role']['Arn']
 
 
-""" delete_role deletes the role named in parameter.
+""" delete_role() deletes the role named in parameter.
 parameters: role_name to delete
-returns: Nothing
+returns: True on success and False on failure
 """
 def delete_role(role_name):
     iam = boto3.client('iam')
@@ -266,10 +264,10 @@ def delete_role(role_name):
     return True
 
 
-""" list_roles lists the roles at aws and create a dictionary of 
+""" list_roles() lists the roles at aws and creates a dictionary of 
 their names and associated arn's.
 paramters: None
-returns: dictionary of roles and their arn's.
+returns: dictionary of roles and their arn's. None on failure
 """
 def list_roles():
     role_list = {}
