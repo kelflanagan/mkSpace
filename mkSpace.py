@@ -373,6 +373,9 @@ def update_mySpace_code(config_json):
         .format(config_json['api_name'])
         )
 
+    # determine if custom domain should be created
+    # work goes here
+
     return True
 
 
