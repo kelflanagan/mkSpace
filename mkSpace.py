@@ -176,85 +176,20 @@ def is_api_remnant(api_name):
             return True
 
     return False
-    
 
-""" create_mySpace() creates the role, policy, lambda function
-and the API.
-parameters: config_json
-returns: True on success and False on failure
+
+""" create_api() creates the roles, policies, reources, and methods
+to implement the API.
+paramters: config_json, api_json, and lambda_arn
+returns: True on success, False on failure
 """
-def create_mySpace(config_json, api_json):
-    # create role for lambda function
-    lambda_role_arn = aws.create_role(
-        config_json['api_name'] + config_json['aws_lambda_role'],
-        config_json['aws_assume_role']
-        )
-    if lambda_role_arn == None:
-        return False
-    print(
-        'Created role {}'
-        .format(config_json['api_name'] + config_json['aws_lambda_role'])
-        )
-
-    # create policy mySpaceAllowMuch for lambda function
-    allow_much_policy_arn = aws.create_policy(
-        config_json['api_name'] + config_json['aws_lambda_role_policy'],
-        config_json['aws_allow_much']
-        )
-    if allow_much_policy_arn == None:
-        return False
-    print(
-        'Created policy {}'
-        .format(config_json['api_name'] + config_json['aws_lambda_role_policy'])
-        )
-
-    # attach managed policy to role
-    success = aws.attach_managed_policy(
-        config_json['api_name'] + config_json['aws_lambda_role'],
-        allow_much_policy_arn
-        )
-    if not success:
-        return False
-    print(
-        'Attached policy {} to role {}'
-        .format(
-            config_json['api_name'] + config_json['aws_lambda_role_policy'],
-            config_json['api_name'] + config_json['aws_lambda_role']
-            )
-        )
-
-    # get function code in zip format from github repo
-    success, zip_file = github.get_zipfile(
-        config_json['github_file'], 
-        config_json['github_repo'], 
-        config_json['github_repo_owner']
-        )
-    if not success:
-        return False
-    print(
-        'Obtained {} from github repo {}'
-        .format(
-            config_json['github_file'],
-            config_json['github_repo']
-            )
-        )
-
-    lambda_arn = aws.create_function(
-        config_json['api_name'],
-        lambda_role_arn,
-        zip_file,
-        'mySpace is the installer app for mySpace services'
-        )
-    if lambda_arn == None:
-        return False
-    print('Created lambda function {}'.format(config_json['api_name']))
-
+def create_api(config_json, api_json, lambda_arn):
     # create role for API Gateway to invoke lambda functions
     api_role_arn = aws.create_role(
         config_json['api_name'] + config_json['aws_api_role'],
         config_json['aws_assume_role']
         )
-    if lambda_role_arn == None:
+    if api_role_arn == None:
         return False
     print(
         'Created role {}'
@@ -323,6 +258,84 @@ def create_mySpace(config_json, api_json):
         'Created API {}'
         .format(config_json['api_name'])
         )
+    return True
+
+
+""" create_mySpace() creates the role, policy, lambda function
+and the API.
+parameters: config_json
+returns: True on success and False on failure
+"""
+def create_mySpace(config_json, api_json):
+    # create role for lambda function
+    lambda_role_arn = aws.create_role(
+        config_json['api_name'] + config_json['aws_lambda_role'],
+        config_json['aws_assume_role']
+        )
+    if lambda_role_arn == None:
+        return False
+    print(
+        'Created role {}'
+        .format(config_json['api_name'] + config_json['aws_lambda_role'])
+        )
+
+    # create policy mySpaceAllowMuch for lambda function
+    allow_much_policy_arn = aws.create_policy(
+        config_json['api_name'] + config_json['aws_lambda_role_policy'],
+        config_json['aws_allow_much']
+        )
+    if allow_much_policy_arn == None:
+        return False
+    print(
+        'Created policy {}'
+        .format(config_json['api_name'] + config_json['aws_lambda_role_policy'])
+        )
+
+    # attach managed policy to role
+    success = aws.attach_managed_policy(
+        config_json['api_name'] + config_json['aws_lambda_role'],
+        allow_much_policy_arn
+        )
+    if not success:
+        return False
+    print(
+        'Attached policy {} to role {}'
+        .format(
+            config_json['api_name'] + config_json['aws_lambda_role_policy'],
+            config_json['api_name'] + config_json['aws_lambda_role']
+            )
+        )
+
+    # get function code in zip format from github repo
+    success, zip_file = github.get_zipfile(
+        config_json['github_file'], 
+        config_json['github_repo'], 
+        config_json['github_repo_owner']
+        )
+    if not success:
+        return False
+    print(
+        'Obtained {} from github repo {}'
+        .format(
+            config_json['github_file'],
+            config_json['github_repo']
+            )
+        )
+
+    # create lambda function
+    lambda_arn = aws.create_function(
+        config_json['api_name'],
+        lambda_role_arn,
+        zip_file,
+        'mySpace is the installer app for mySpace services'
+        )
+    if lambda_arn == None:
+        return False
+    print('Created lambda function {}'.format(config_json['api_name']))
+
+    # create API
+    if not create_api(config_json, api_json, lambda_arn):
+        return False
 
     return True
 
