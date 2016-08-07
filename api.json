@@ -13,10 +13,10 @@
               "statusCode": "200"
             },
             ".*NotFound.*": {
-              "statusCode": "404",
-              "responseTemplates": {
+              "ationresponseTemplates": {
                 "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
-              }
+              },
+              "statusCode": "404"
             },
             ".*MethodNotAllowed.*": {
               "statusCode": "405",
@@ -47,10 +47,7 @@
         ],
         "responses": {
           "200": {
-            "description": "200 response",
-            "schema": {
-              "$ref": "#/definitions/Empty"
-            }
+            "description": "200 response"
           },
           "405": {
             "description": "405 response"
@@ -105,10 +102,7 @@
         ],
         "responses": {
           "200": {
-            "description": "200 response",
-            "schema": {
-              "$ref": "#/definitions/Empty"
-            }
+            "description": "200 response"
           },
           "405": {
             "description": "405 response"
@@ -157,10 +151,7 @@
         ],
         "responses": {
           "200": {
-            "description": "200 response",
-            "schema": {
-              "$ref": "#/definitions/Empty"
-            }
+            "description": "200 response"
           },
           "404": {
             "description": "404 response"
@@ -212,10 +203,7 @@
         ],
         "responses": {
           "200": {
-            "description": "200 response",
-            "schema": {
-              "$ref": "#/definitions/Empty"
-            }
+            "description": "200 response"
           },
           "405": {
             "description": "405 response"
@@ -230,15 +218,9 @@
       }
     }
   },
+  "basePath": "/prod",
   "schemes": [
     "https"
   ],
-  "basePath": "/prod",
-  "host": "80kl16l4d3.execute-api.us-west-2.amazonaws.com",
-  "definitions": {
-    "Empty": {
-      "type": "object"
-    }
-  },
   "swagger": "2.0"
 }

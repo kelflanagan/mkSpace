@@ -4,6 +4,7 @@ import aws
 import github
 import httplib
 import json
+import string
 import sys
 import time
 
@@ -182,7 +183,7 @@ and the API.
 parameters: config_json
 returns: True on success and False on failure
 """
-def create_mySpace(config_json):
+def create_mySpace(config_json, api_json):
     # create role for lambda function
     lambda_role_arn = aws.create_role(
         config_json['api_name'] + config_json['aws_lambda_role'],
@@ -288,6 +289,34 @@ def create_mySpace(config_json):
             )
         )
 
+    # before the creation of the API we need to modify the API template file
+    # things that need to be done
+    # 1. uri fields need to point to the lambda function created above
+    # 2. credentials field needs to point to role created above
+    #
+    # acquire region from lambda arn
+    arn_fields = string.split(lambda_arn, ':')
+    # form uri value
+    uri_value = (
+        'arn:aws:apigateway:' 
+        + arn_fields[3] 
+        + ':lambda:path/2015-03-31/functions/'
+        + lambda_arn
+        + '/invocations'
+        )
+    # write value into api object in the uri location for each method
+    # also write api_role_arn into the credentials value
+    api_gw_int = 'x-amazon-apigateway-integration'
+    methods = ['get', 'put', 'post', 'delete']
+    for method in methods:
+        api_json['paths']['/'][method][api_gw_int]['uri'] = uri_value
+        api_json['paths']['/'][method][api_gw_int]['credentials'] = api_role_arn
+
+    # write file to disk to save adjustments
+    if not put_json_object(api_json, config_json['api_json_file']):
+        return False
+
+    # create api
     if not aws.create_api(config_json['api_json_file']):
         return False
     print(
@@ -356,8 +385,8 @@ if api == None:
 
 # adjust title in API config file
 api['info']['title'] = config_json['api_name']
-if not put_json_object(api, config_json['api_json_file']):
-    exit()
+#if not put_json_object(api, config_json['api_json_file']):
+#    exit()
 
 # create API and infrastructure
 if sys.argv[1] == 'create':
@@ -368,7 +397,7 @@ if sys.argv[1] == 'create':
             )
         exit()
 
-    if create_mySpace(config_json):
+    if create_mySpace(config_json, api):
         print('Install successful')
     else:
         print('Install failed')
