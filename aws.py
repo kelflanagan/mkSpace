@@ -4,6 +4,28 @@ import json
 import time
 
 
+""" add_base_path_mapping() connects the domain name to the API with a base
+path and stage path variable.
+parameters: domain_name, base_path, api_id, stage
+returns True on success and False on failure
+"""
+def add_base_path_mapping(domain_name, base_path, api_id, stage):
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        response = api.create_base_path_mapping(
+            domainName=domain_name,
+            basePath=base_path,
+            restApiId=api_id,
+            stage=stage
+            )
+    except botocore.exceptions.ClientError as e:
+        print "add_base_path_mapping(): %s" % e
+        return False
+    return True
+
+
 """ add_domain_name() allows the user to point a custom
 domain name at their API. cert and cert_chain are pem formatted.
 parameters: domain_name, cert_name, cert, cert_private_key, cert_chain

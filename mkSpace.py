@@ -110,10 +110,35 @@ def add_domain_name(config_json):
     if response == None:
         return False
 
+    # connect API to domain name and add base_path
+    # get API ID
+    apis = aws.list_apis()
+    if apis == None:
+        return False
+    if config_json['api_name'] not in apis:
+        return False
+    api_id = apis[config_json['api_name']]
+    success = aws.add_base_path_mapping(
+        config_json['host_name'],
+        config_json['api_name'],
+        api_id, 
+        ''
+        )
+    if not success:
+        return False
+        
     print('Custom domain successfully added')
     print(
         'Please set the CNAME for {} to {} to complete the setup'
         .format(config_json['host_name'], response)
+        )
+    print(
+        '{} API can be reached at {}/{}'
+        .format(
+            config_json['api_name'], 
+            config_json['host_name'], 
+            config_json['api_name']
+            )
         )
     return True
 
