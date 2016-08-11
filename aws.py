@@ -4,6 +4,25 @@ import json
 import time
 
 
+""" deploy_api deploys a production instance of the API
+parameters: stage_name and api_id
+returns: prod_id on success or None on failure
+"""
+def deploy_api(stage_name, api_id):
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        response = api.create_deployment(
+            restApiId=api_id,
+            stageName=stage_name
+            )
+    except botocore.exceptions.ClientError as e:
+        print "deploy_api(): %s" % e
+        return None
+    return response['id']
+
+
 """ create_api creates an API at Amazon AWS API Gateway
 parameters: filename contains the template in swagger 2.0 JSON format
 returns: API_ID on success or None on failure

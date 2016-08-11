@@ -179,19 +179,29 @@ def is_api_remnant(api_name):
 
 
 """ deploy_api() deploys a prod version of the API
-paramters: config_json, api_json, and lambda_arn
-returns: True on success, False on failure
-def deploy_api(config_json, api_json, lambda_arn):
+paramters: api_name, api_id, stage_name, and region
+returns: prod_id on success, None on failure
 """
+def deploy_api(api_name, api_id, stage_name, region):
+    # deploy API into production (prod)
+    prod_id = aws.deploy_api(stage_name, api_id)
+    if prod_id == None:
+        return None
 
+    print('Deployed {} version of {} API.'.format(stage_name, api_name))
+    print(
+        'It can be reached at: https://{}.execute-api.{}.amazonaws.com/{}'
+        .format(api_id, region, stage_name)
+        )
+    return prod_id
 
 
 """ create_api() creates the roles, policies, reources, and methods
 to implement the API.
-paramters: config_json, api_json, and lambda_arn
+paramters: config_json, api_json, lambda_arn, and region
 returns: API_ID on success, None on failure
 """
-def create_api(config_json, api_json, lambda_arn):
+def create_api(config_json, api_json, lambda_arn, region):
     # create role for API Gateway to invoke lambda functions
     api_role_arn = aws.create_role(
         config_json['api_name'] + config_json['aws_api_role'],
@@ -237,12 +247,10 @@ def create_api(config_json, api_json, lambda_arn):
     # 1. uri fields need to point to the lambda function created above
     # 2. credentials field needs to point to role created above
     #
-    # acquire region from lambda arn
-    arn_fields = string.split(lambda_arn, ':')
     # form uri value
     uri_value = (
         'arn:aws:apigateway:' 
-        + arn_fields[3] 
+        + region
         + ':lambda:path/2015-03-31/functions/'
         + lambda_arn
         + '/invocations'
@@ -342,15 +350,24 @@ def create_mySpace(config_json, api_json):
         return False
     print('Created lambda function {}'.format(config_json['api_name']))
 
+    # acquire region from lambda arn
+    region = string.split(lambda_arn, ':')[3]
+
     # create API
-    api_id = create_api(config_json, api_json, lambda_arn)
+    api_id = create_api(config_json, api_json, lambda_arn, region)
     if api_id == None:
         return False
 
+    # deploy prod version of API
+    prod_id = deploy_api(api_json['info']['title'], api_id, 'prod', region)
+    if prod_id == None:
+        return False
+
+    print('api_id = {} and prod_id = {}'.format(api_id, prod_id))
     return True
 
 
-""" update_mySpace_cod() updates just the code in an existing lambda 
+""" update_mySpace_code() updates just the code in an existing lambda 
 function.
 parameters: config_json
 returns: True on success and False on failure
