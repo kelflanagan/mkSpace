@@ -178,10 +178,18 @@ def is_api_remnant(api_name):
     return False
 
 
+""" deploy_api() deploys a prod version of the API
+paramters: config_json, api_json, and lambda_arn
+returns: True on success, False on failure
+def deploy_api(config_json, api_json, lambda_arn):
+"""
+
+
+
 """ create_api() creates the roles, policies, reources, and methods
 to implement the API.
 paramters: config_json, api_json, and lambda_arn
-returns: True on success, False on failure
+returns: API_ID on success, None on failure
 """
 def create_api(config_json, api_json, lambda_arn):
     # create role for API Gateway to invoke lambda functions
@@ -190,7 +198,7 @@ def create_api(config_json, api_json, lambda_arn):
         config_json['aws_assume_role']
         )
     if api_role_arn == None:
-        return False
+        return None
     print(
         'Created role {}'
         .format(config_json['api_name'] + config_json['aws_api_role'])
@@ -203,7 +211,7 @@ def create_api(config_json, api_json, lambda_arn):
         config_json['aws_lambda_invoke']
         )
     if invoke_lambda_policy_arn == None:
-        return False
+        return None
     print(
         'Created policy {}'
         .format(config_json['api_name'] + config_json['aws_api_role_policy'])
@@ -215,7 +223,7 @@ def create_api(config_json, api_json, lambda_arn):
         invoke_lambda_policy_arn
         )
     if not success:
-        return False
+        return None
     print(
         'Attached policy {} to role {}'
         .format(
@@ -249,16 +257,17 @@ def create_api(config_json, api_json, lambda_arn):
 
     # write file to disk to save adjustments
     if not put_json_object(api_json, config_json['api_json_file']):
-        return False
+        return None
 
     # create api
-    if not aws.create_api(config_json['api_json_file']):
-        return False
+    api_id = aws.create_api(config_json['api_json_file'])
+    if api_id == None:
+        return None
     print(
         'Created API {}'
         .format(config_json['api_name'])
         )
-    return True
+    return api_id
 
 
 """ create_mySpace() creates the role, policy, lambda function
@@ -334,7 +343,8 @@ def create_mySpace(config_json, api_json):
     print('Created lambda function {}'.format(config_json['api_name']))
 
     # create API
-    if not create_api(config_json, api_json, lambda_arn):
+    api_id = create_api(config_json, api_json, lambda_arn)
+    if api_id == None:
         return False
 
     return True

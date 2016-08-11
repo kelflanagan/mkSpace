@@ -6,7 +6,7 @@ import time
 
 """ create_api creates an API at Amazon AWS API Gateway
 parameters: filename contains the template in swagger 2.0 JSON format
-returns: True or False for success or failure
+returns: API_ID on success or None on failure
 """
 def create_api(filename):
     # read file and convert to bytes
@@ -16,7 +16,7 @@ def create_api(filename):
             b = bytearray(f)
     except IOError:
         print('create_api(): cannot open file')
-        return False
+        return None
         
     # create client to api gateway
     api = boto3.client('apigateway')
@@ -28,8 +28,8 @@ def create_api(filename):
             )
     except botocore.exceptions.ClientError as e:
         print "create_api(): %s" % e
-        return False
-    return True
+        return None
+    return response['id']
 
 
 """ delete_api() deletes an API at Amazon AWS API Gateway
