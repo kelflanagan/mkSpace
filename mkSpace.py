@@ -61,6 +61,63 @@ def tell_user(cfg_json):
           ) 
 
 
+""" add_domain_name() associates a custom domain name with the mySpace
+API.
+paramters: config_json
+returns url to point DNS to on success and None on failure
+"""
+def add_domain_name(config_json):
+    # collect certificate
+    try:
+        with open(config_json['host_name_crt_file'], 'r') as crt_fp:
+            crt = crt_fp.read()
+    except IOError:
+        print('add_domain_name(): no such file')
+        return False
+    except:
+        print('add_domain_name(): unexpected exception')
+        return False
+
+    # collect key
+    try:
+        with open(config_json['host_name_key_file'], 'r') as key_fp:
+            key = key_fp.read()
+    except IOError:
+        print('add_domain_name(): no such file')
+        return False
+    except:
+        print('add_domain_name(): unexpected exception')
+        return False
+
+    # collect chain
+    try:
+        with open(config_json['crt_chain'], 'r') as chain_fp:
+            chain = chain_fp.read()
+    except IOError:
+        print('add_domain_name(): no such file')
+        return False
+    except:
+        print('add_domain_name(): unexpected exception')
+        return False
+
+    response = aws.add_domain_name(
+        config_json['host_name'],
+        config_json['api_name'],
+        crt,
+        key,
+        chain
+        )
+    if response == None:
+        return False
+
+    print('Custom domain successfully added')
+    print(
+        'Please set the CNAME for {} to {} to complete the setup'
+        .format(config_json['host_name'], response)
+        )
+    return True
+
+
 """ delete_mySpace() deletes the role, policy, lambda function
 and the API.
 parameters: config_json
@@ -412,8 +469,14 @@ def update_mySpace_code(config_json):
 #
 #########
 # read command line arguments and give user feedback
-if len(sys.argv) != 2 :
-    print('usage : mkSpace create | delete')
+if len(sys.argv) == 1:
+    print('usage : mkSpace create | delete | update | domain [options]')
+    print('domain options include add | delete | update')
+    exit()
+
+if sys.argv[1] == 'help':
+    print('usage : mkSpace create | delete | update | domain [options]')
+    print('domain options include add | delete | update')
     exit()
 
 # get configuration object
@@ -445,6 +508,37 @@ if sys.argv[1] == 'create':
     else:
         print('Install failed')
 
+# support custom domain names
+elif sys.argv[1] == 'domain':
+    if len(sys.argv) != 3:
+        print('usage : mkSpace domain add | delete | update')
+        exit()
+
+    if not is_api_remnant(config_json['api_name']):
+        print(
+            '{} API does not exist. Use mkSpace create before mkSpace domain'
+            .format(config_json['api_name'])
+            )
+        exit()
+
+    if sys.argv[2] == 'add':
+        if add_domain_name(config_json):
+            print('Custom domain name added.')
+        else:
+            print('Custom domain name add failed.')
+        
+    if sys.argv[2] == 'delete':
+        if add_domain_name(config_json):
+            print('Custom domain name deleted.')
+        else:
+            print('Custom domain name delete failed.')
+        
+    if sys.argv[2] == 'update':
+        if add_domain_name(config_json):
+            print('Custom domain name updated.')
+        else:
+            print('Custom domain name update failed.')
+
 # update lambda function code
 elif sys.argv[1] == 'update':
     if not is_api_remnant(config_json['api_name']):
@@ -475,6 +569,7 @@ elif sys.argv[1] == 'delete':
 
 # else bad command
 else:
-    print('usage : mkSpace create | delete')
+    print('usage : mkSpace create | delete | update | domain [options]')
+    print('domain options include add | delete | update')
     exit()
 

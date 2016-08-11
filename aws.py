@@ -4,6 +4,29 @@ import json
 import time
 
 
+""" add_domain_name() allows the user to point a custom
+domain name at their API. cert and cert_chain are pem formatted.
+parameters: domain_name, cert_name, cert, cert_private_key, cert_chain
+returns: distribution_domain_name on success and None on failure
+"""
+def add_domain_name(domain_name, cert_name, cert, cert_private_key, cert_chain):
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        response = api.create_domain_name(
+            domainName=domain_name,
+            certificateName=cert_name,
+            certificateBody=cert,
+            certificatePrivateKey=cert_private_key,
+            certificateChain=cert_chain
+            )
+    except botocore.exceptions.ClientError as e:
+        print "deploy_api(): %s" % e
+        return None
+    return response['distributionDomainName']
+
+
 """ deploy_api deploys a production instance of the API
 parameters: stage_name and api_id
 returns: prod_id on success or None on failure
