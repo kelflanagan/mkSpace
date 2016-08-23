@@ -3,6 +3,30 @@ import botocore
 import json
 import time
 
+""" delete_base_path_mapping() deletes the mapping between an API and
+domain name.
+parameters: domain_name, base_path
+returns True on success and False on failure
+"""
+def delete_base_path_mapping(domain_name, base_path):
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        response = api.delete_base_path_mapping(
+            domainName=domain_name,
+            basePath=base_path
+        )
+    except botocore.exceptions.ClientError as e:
+        print "delete_base_path_mapping(): %s" % e
+        print(
+            'base_path = {} and domain_name = {}'
+            .format(base_path, domain_name)
+        )
+        return False
+
+    return True
+
 
 """ add_base_path_mapping() connects the domain name to the API with a base
 path and stage path variable.
@@ -13,16 +37,28 @@ def add_base_path_mapping(domain_name, base_path, api_id, stage):
     # create client to api gateway
     api = boto3.client('apigateway')
     # make request
-    try:
-        response = api.create_base_path_mapping(
-            domainName=domain_name,
-            basePath=base_path,
-            restApiId=api_id,
-            stage=stage
+    if stage == '':
+        try:
+            response = api.create_base_path_mapping(
+                domainName=domain_name,
+                basePath=base_path,
+                restApiId=api_id
             )
-    except botocore.exceptions.ClientError as e:
-        print "add_base_path_mapping(): %s" % e
-        return False
+        except botocore.exceptions.ClientError as e:
+            print "add_base_path_mapping(): %s" % e
+            return False
+    else:
+        try:
+            response = api.create_base_path_mapping(
+                domainName=domain_name,
+                basePath=base_path,
+                restApiId=api_id,
+                stage=stage
+            )
+        except botocore.exceptions.ClientError as e:
+            print "add_base_path_mapping(): %s" % e
+            return False
+
     return True
 
 
@@ -49,11 +85,34 @@ def add_domain_name(domain_name, cert_name, cert, cert_private_key, cert_chain):
     return response['distributionDomainName']
 
 
-""" deploy_api deploys a production instance of the API
+""" list_deployments() lists all depluments for an API
+paramters: api_id
+return: list where each entry is a deployment ID associated with the API
+or None on failure
+"""
+def list_deployments(api_id):
+    deployment_list = []
+    api = boto3.client('apigateway')
+    try:
+        response = api.get_deployments(
+            restApiId=api_id,
+            limit=500
+        )
+    except botocore.exceptions.ClientError as e:
+        print "list_deployments(): %s" % e
+        return None
+
+    if 'items' in response:
+        for item in response['items']:
+            deployment_list.append(item['id'])
+    return deployment_list
+
+
+""" add_api_deployment() deploys a production instance of the API
 parameters: stage_name and api_id
 returns: prod_id on success or None on failure
 """
-def deploy_api(stage_name, api_id):
+def add_api_deployment(stage_name, api_id):
     # create client to api gateway
     api = boto3.client('apigateway')
     # make request
@@ -66,6 +125,46 @@ def deploy_api(stage_name, api_id):
         print "deploy_api(): %s" % e
         return None
     return response['id']
+
+
+""" delete_api_deployment() deletes all api deployments
+parameters: api_name
+returns: True on success and False on failure
+"""
+def delete_api_deployment(api_name, stage_name):
+    # get api_id
+    apis = list_apis()
+    if apis == None:
+        return False
+    if api_name in apis:
+        api_id = apis[api_name]
+    else:
+        return False
+
+    # get deployment_id
+    deployments = list_deployments(api_id)
+    if deployments == None:
+        return False
+
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # delete connected stage
+    api.delete_stage(
+        restApiId=api_id,
+        stageName=stage_name
+    )
+
+    # delete deployment
+    for deployment in deployments:
+        try:
+            response = api.delete_deployment(
+                restApiId=api_id,
+                deploymentId=deployment
+            )
+        except botocore.exceptions.ClientError as e:
+            print "delete_api_deplyment(): %s" % e
+            return False
+    return True
 
 
 """ create_api creates an API at Amazon AWS API Gateway

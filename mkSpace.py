@@ -46,19 +46,30 @@ def put_json_object(json_object, filename):
         return False
     return True
 
+def delete_domain_name(config_json):
+    failure = False
+    # delete base path mapping
+    print('Deleting base path mapping -')
+    success = aws.delete_base_path_mapping(
+        config_json['host_name'], 
+        config_json['api_name']
+    )
+    if success:
+        print(
+            'Deleted basepath mapping {}/{}'
+            .format(config_json['host_name'], config_json['api_name'])
+        )
+    else:
+        failure = True
+        print(
+            'Did not delete basepath mapping {}/{}'
+            .format(config_json['host_name'], config_json['api_name'])
+        )
 
-""" inform the user of action to be taken """
-def tell_user(cfg_json):
-    # give user feedback on whats going to take place
-    # given the setup file contents
-    print('Creating {} API at Amazon AWS'.format(cfg_json['api_name']))
-    print('Also installing lambda function {}'.format(cfg_json['api_name']))
-    print('{} will be accessible via https://{}/{}'.format(
-            cfg_json['api_name'], 
-            cfg_json['host_name'], 
-            cfg_json['api_name']
-            )
-          ) 
+    # not done
+    if failure:
+        return False
+    return True
 
 
 """ add_domain_name() associates a custom domain name with the mySpace
@@ -72,7 +83,7 @@ def add_domain_name(config_json):
         with open(config_json['host_name_crt_file'], 'r') as crt_fp:
             crt = crt_fp.read()
     except IOError:
-        print('add_domain_name(): no such file')
+        print('add_domain_name(): no such certificate file')
         return False
     except:
         print('add_domain_name(): unexpected exception')
@@ -83,7 +94,7 @@ def add_domain_name(config_json):
         with open(config_json['host_name_key_file'], 'r') as key_fp:
             key = key_fp.read()
     except IOError:
-        print('add_domain_name(): no such file')
+        print('add_domain_name(): no such key file')
         return False
     except:
         print('add_domain_name(): unexpected exception')
@@ -94,7 +105,7 @@ def add_domain_name(config_json):
         with open(config_json['crt_chain'], 'r') as chain_fp:
             chain = chain_fp.read()
     except IOError:
-        print('add_domain_name(): no such file')
+        print('add_domain_name(): no such chain file')
         return False
     except:
         print('add_domain_name(): unexpected exception')
@@ -149,73 +160,110 @@ parameters: config_json
 returns: True on success and False on failure
 """
 def delete_mySpace(config_json):
+    failure = False
+    # delete deployments associated with API
+    print('Deleting deployment -')
+    success = aws.delete_api_deployment(
+        config_json['api_name'],
+        config_json['api_name'] + 'Prod'
+        )
+    if success:
+        print(
+            'Deleted {}'
+            .format(config_json['api_name'] + 'Prod')
+            )
+    else:
+        failure = True
+        print(
+            'Failed to delete {}'
+            .format(config_json['api_name'] + 'Prod')
+            )
+
+    # delete API
+    print('Deleting API -')
     apis = aws.list_apis()
     if apis == None:
-        return False
-    if config_json['api_name'] in apis:
-        if aws.delete_api(apis[config_json['api_name']]):
-            print('Deleted {} API.'.format(config_json['api_name']))
-        else:
-            print('Failed to delete {} API.'.format(config_json['api_name']))
+        failure = True
+    else:
+        if config_json['api_name'] in apis:
+            if aws.delete_api(apis[config_json['api_name']]):
+                print(
+                    'Deleted {} API'.format(config_json['api_name'])
+                    )
+            else:
+                failure = True
+                print(
+                    'Failed to delete {} API'.format(config_json['api_name'])
+                    )
 
+    print('Deleting lambda function -')
     function_list = aws.list_functions()
     if function_list == None:
-        return False
-
-    if config_json['api_name'] in function_list:
-        if aws.delete_function(function_list[config_json['api_name']]):
-            print('Deleted Lambda Function {}.'.format(config_json['api_name']))
-        else:
-            print(
-                'Failed to delete Lambda Function {}.'
-                .format(config_json['api_name'])
-                )
+        failure = True
+    else:
+        if config_json['api_name'] in function_list:
+            if aws.delete_function(function_list[config_json['api_name']]):
+                print(
+                    'Deleted lambda function {}'
+                    .format(config_json['api_name'])
+                    )
+            else:
+                failure = True
+                print(
+                    'Failed to delete lambda function {}'
+                    .format(config_json['api_name'])
+                    )
 
     # detach policies from roles
     # list local policies
+    print('Detaching policies from roles -')
     policy_list = aws.list_policies()
     if policy_list == None:
-        return False
-    # detach them
-    for policy in policy_list:
-        if policy.startswith(config_json['api_name']):
-            roles = aws.list_roles_with_attached_policy(policy_list[policy])
-            if roles == None:
-                return False
-            for role in roles:
-                if aws.detach_managed_policy(role, roles[role]):
-                    print(
-                        'Detached policy {} from role {}'
-                        .format(policy, role))
+        failure = True
+    else:
+        for policy in policy_list:
+            if policy.startswith(config_json['api_name']):
+                roles = aws.list_roles_with_attached_policy(policy_list[policy])
+                if roles == None:
+                    failure = True
                 else:
-                    print(
-                        'Failed to detach policy {} from role {}'
-                        .format(policy, role))
+                    for role in roles:
+                        if aws.detach_managed_policy(role, roles[role]):
+                            print(
+                                'Detached policy {} from role {}'
+                                .format(policy, role))
+                        else:
+                            print(
+                                'Failed to detach policy {} from role {}'
+                                .format(policy, role))
             
     # list roles
+    print('Deleting roles -')
     role_list = aws.list_roles()
     if role_list == None:
-        return False
-    # delete them
-    for role in role_list:
-        if role.startswith(config_json['api_name']):
-            if aws.delete_role(role):
-                print('Deleted role {}'.format(role))
-            else:
-                print('Failed to delete role {}'.format(role))
+        failure = True
+    else:
+        for role in role_list:
+            if role.startswith(config_json['api_name']):
+                if aws.delete_role(role):
+                    print('Deleted role {}'.format(role))
+                else:
+                    print('Failed to delete role {}'.format(role))
 
     # list local policies
+    print('Deleting policies -')
     policy_list = aws.list_policies()
     if policy_list == None:
+        failure = True
+    else:
+        for policy in policy_list:
+            if policy.startswith(config_json['api_name']):
+                if aws.delete_policy(policy_list[policy]):
+                    print('Deleted policy {}'.format(policy))
+                else:
+                    print('Failed to delete policy {}'.format(policy))
+    if failure:
         return False
-    # delete them
-    for policy in policy_list:
-        if policy.startswith(config_json['api_name']):
-            if aws.delete_policy(policy_list[policy]):
-                print('Deleted policy {}'.format(policy))
-            else:
-                print('Failed to delete policy {}'.format(policy))
-
     return True
 
 
@@ -266,11 +314,11 @@ returns: prod_id on success, None on failure
 """
 def deploy_api(api_name, api_id, stage_name, region):
     # deploy API into production (prod)
-    prod_id = aws.deploy_api(stage_name, api_id)
+    prod_id = aws.add_api_deployment(stage_name, api_id)
     if prod_id == None:
         return None
 
-    print('Deployed {} version of {} API.'.format(stage_name, api_name))
+    print('Deployed {} version of {} API'.format(stage_name, api_name))
     print(
         'It can be reached at: https://{}.execute-api.{}.amazonaws.com/{}'
         .format(api_id, region, stage_name)
@@ -353,10 +401,6 @@ def create_api(config_json, api_json, lambda_arn, region):
     api_id = aws.create_api(config_json['api_json_file'])
     if api_id == None:
         return None
-    print(
-        'Created API {}'
-        .format(config_json['api_name'])
-        )
     return api_id
 
 
@@ -367,11 +411,16 @@ returns: True on success and False on failure
 """
 def create_mySpace(config_json, api_json):
     # create role for lambda function
+    print('Creating role -')
     lambda_role_arn = aws.create_role(
         config_json['api_name'] + config_json['aws_lambda_role'],
         config_json['aws_assume_role']
         )
     if lambda_role_arn == None:
+        print(
+            'Failed to create role {}'
+            .format(config_json['api_name'] + config_json['aws_lambda_role'])
+            )
         return False
     print(
         'Created role {}'
@@ -379,11 +428,18 @@ def create_mySpace(config_json, api_json):
         )
 
     # create policy mySpaceAllowMuch for lambda function
+    print('Creating policy -')
     allow_much_policy_arn = aws.create_policy(
         config_json['api_name'] + config_json['aws_lambda_role_policy'],
         config_json['aws_allow_much']
         )
     if allow_much_policy_arn == None:
+        print(
+            'Failed to create policy {}'
+            .format(
+                config_json['api_name'] + config_json['aws_lambda_role_policy']
+                )
+            )
         return False
     print(
         'Created policy {}'
@@ -391,11 +447,19 @@ def create_mySpace(config_json, api_json):
         )
 
     # attach managed policy to role
+    print('Attaching policy to role -')
     success = aws.attach_managed_policy(
         config_json['api_name'] + config_json['aws_lambda_role'],
         allow_much_policy_arn
         )
     if not success:
+        print(
+            'Failed to attached policy {} to role {}'
+            .format(
+                config_json['api_name'] + config_json['aws_lambda_role_policy'],
+                config_json['api_name'] + config_json['aws_lambda_role']
+                )
+            )
         return False
     print(
         'Attached policy {} to role {}'
@@ -406,12 +470,20 @@ def create_mySpace(config_json, api_json):
         )
 
     # get function code in zip format from github repo
+    print('Downloading lambda function code -')
     success, zip_file = github.get_zipfile(
         config_json['github_file'], 
         config_json['github_repo'], 
         config_json['github_repo_owner']
         )
     if not success:
+        print(
+            'Failed to obtain {} from github repo {}'
+            .format(
+                config_json['github_file'],
+                config_json['github_repo']
+                )
+            )
         return False
     print(
         'Obtained {} from github repo {}'
@@ -422,30 +494,61 @@ def create_mySpace(config_json, api_json):
         )
 
     # create lambda function
+    print('Creating lambda function -')
+    comment_str = (
+        config_json['api_name']
+        + ' is the installer app for the '
+        + config_json['api_name']
+        + ' services'
+        )
+    
     lambda_arn = aws.create_function(
         config_json['api_name'],
         lambda_role_arn,
         zip_file,
-        'mySpace is the installer app for mySpace services'
+        'test'
         )
     if lambda_arn == None:
+        print(
+            'Failed to create lambda function {}'
+            .format(config_json['api_name'])
+            )
         return False
-    print('Created lambda function {}'.format(config_json['api_name']))
+    print(
+        'Created lambda function {}'.format(config_json['api_name'])
+        )
 
     # acquire region from lambda arn
     region = string.split(lambda_arn, ':')[3]
 
     # create API
+    print('Creating API -')
     api_id = create_api(config_json, api_json, lambda_arn, region)
     if api_id == None:
+        print(
+            'Failed to create API {}'
+            .format(config_json['api_name'])
+            )
         return False
+    print(
+        'Created API {}'
+        .format(config_json['api_name'])
+        )
 
     # deploy prod version of API
-    prod_id = deploy_api(api_json['info']['title'], api_id, 'prod', region)
+    print('Deploying production version of API -')
+    prod_id = deploy_api(
+        api_json['info']['title'], 
+        api_id, 
+        config_json['api_name'] + 'Prod',
+        region
+    )
     if prod_id == None:
+        print(
+            'Failed to deploy {} version of API {}'
+            .format(config_json['api_name'], config_json['api_name'] + 'Prod')
+            )
         return False
-
-    print('api_id = {} and prod_id = {}'.format(api_id, prod_id))
     return True
 
 
@@ -548,21 +651,21 @@ elif sys.argv[1] == 'domain':
 
     if sys.argv[2] == 'add':
         if add_domain_name(config_json):
-            print('Custom domain name added.')
+            print('Custom domain name added')
         else:
-            print('Custom domain name add failed.')
+            print('Custom domain name add failed')
         
     if sys.argv[2] == 'delete':
-        if add_domain_name(config_json):
-            print('Custom domain name deleted.')
+        if delete_domain_name(config_json):
+            print('Custom domain name deleted')
         else:
-            print('Custom domain name delete failed.')
+            print('Custom domain name delete failed')
         
     if sys.argv[2] == 'update':
         if add_domain_name(config_json):
-            print('Custom domain name updated.')
+            print('Custom domain name updated')
         else:
-            print('Custom domain name update failed.')
+            print('Custom domain name update failed')
 
 # update lambda function code
 elif sys.argv[1] == 'update':
@@ -588,9 +691,15 @@ elif sys.argv[1] == 'delete':
         exit()
 
     if delete_mySpace(config_json):
-        print('Successfully deleted mySpace service')
+        print(
+            'Successfully deleted the {} service'
+            .format(config_json['api_name'])
+            )
     else:
-        print('Failed to delete mySpace service')
+        print(
+            'Failed to delete some components of the {} service'
+            .format(config_json['api_name'])
+            )
 
 # else bad command
 else:
