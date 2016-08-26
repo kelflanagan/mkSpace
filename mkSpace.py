@@ -17,107 +17,21 @@ returns: True on success and False on failure
 """
 def delete_mySpace(config_json):
     failure = False
-    # delete deployments associated with API
-    print('Deleting deployment -')
-    success = aws.delete_api_deployment(
-        config_json['api_name'],
-        config_json['api_name'] + 'Prod'
-        )
-    if success:
-        print(
-            'Deleted {}'
-            .format(config_json['api_name'] + 'Prod')
-            )
-    else:
-        failure = True
-        print(
-            'Failed to delete {}'
-            .format(config_json['api_name'] + 'Prod')
-            )
-
-    # delete API
     print('Deleting API -')
-    apis = aws.list_apis()
-    if apis == None:
+    success = aws.delete_api(
+        config_json['api_name'],
+        config_json['api_name'] + 'Prod',
+        )
+    if not success:
         failure = True
-    else:
-        if config_json['api_name'] in apis:
-            if aws.delete_api(apis[config_json['api_name']]):
-                print(
-                    'Deleted {} API'.format(config_json['api_name'])
-                    )
-            else:
-                failure = True
-                print(
-                    'Failed to delete {} API'.format(config_json['api_name'])
-                    )
 
     print('Deleting lambda function -')
-    function_list = aws.list_functions()
-    if function_list == None:
+    success = aws.delete_lambda_function(
+        config_json['api_name']
+        )
+    if not success:
         failure = True
-    else:
-        if config_json['api_name'] in function_list:
-            if aws.delete_function(function_list[config_json['api_name']]):
-                print(
-                    'Deleted lambda function {}'
-                    .format(config_json['api_name'])
-                    )
-            else:
-                failure = True
-                print(
-                    'Failed to delete lambda function {}'
-                    .format(config_json['api_name'])
-                    )
 
-    # detach policies from roles
-    # list local policies
-    print('Detaching policies from roles -')
-    policy_list = aws.list_policies()
-    if policy_list == None:
-        failure = True
-    else:
-        for policy in policy_list:
-            if policy.startswith(config_json['api_name']):
-                roles = aws.list_roles_with_attached_policy(policy_list[policy])
-                if roles == None:
-                    failure = True
-                else:
-                    for role in roles:
-                        if aws.detach_managed_policy(role, roles[role]):
-                            print(
-                                'Detached policy {} from role {}'
-                                .format(policy, role))
-                        else:
-                            print(
-                                'Failed to detach policy {} from role {}'
-                                .format(policy, role))
-            
-    # list roles
-    print('Deleting roles -')
-    role_list = aws.list_roles()
-    if role_list == None:
-        failure = True
-    else:
-        for role in role_list:
-            if role.startswith(config_json['api_name']):
-                if aws.delete_role(role):
-                    print('Deleted role {}'.format(role))
-                else:
-                    print('Failed to delete role {}'.format(role))
-
-    # list local policies
-    print('Deleting policies -')
-    policy_list = aws.list_policies()
-    if policy_list == None:
-        failure = True
-    else:
-        for policy in policy_list:
-            if policy.startswith(config_json['api_name']):
-                if aws.delete_policy(policy_list[policy]):
-                    print('Deleted policy {}'.format(policy))
-                else:
-                    print('Failed to delete policy {}'.format(policy))
     if failure:
         return False
     return True
@@ -187,7 +101,7 @@ def create_mySpace(config_json, api_json):
             )
         return False
     print(
-        'Obtained {} from github repo {}'
+        '  Obtained {} from github repo {}'
         .format(
             config_json['github_file'],
             config_json['github_repo']

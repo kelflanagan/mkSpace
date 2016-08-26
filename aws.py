@@ -211,11 +211,11 @@ def make_api(filename):
     return response['id']
 
 
-""" delete_api() deletes an API at Amazon AWS API Gateway
+""" remove_api() deletes an API at Amazon AWS API Gateway
 parameters: api_id
 returns: True on success and False on failure
 """
-def delete_api(api_id):
+def remove_api(api_id):
     # create client to api gateway
     api = boto3.client('apigateway')
     # make request
@@ -224,7 +224,7 @@ def delete_api(api_id):
             restApiId=api_id
             )
     except botocore.exceptions.ClientError as e:
-        print "delete_api(): %s" % e
+        print "remove_api(): %s" % e
         return False
     return True
 
@@ -613,43 +613,45 @@ def create_lambda_function(api_name,
                            ):
 
     # create role for lambda function
-    print('Creating role -')
+    print('  Creating role')
     lambda_role_arn = create_role(
         lambda_role,
         lambda_assume_role
         )
     if lambda_role_arn == None:
-        print('Failed to create role {}'.format(lambda_role))
+        print('    Failed to create role {}'.format(lambda_role))
         return None
-    print('Created role {}'.format(lambda_role))
+    print('    Created role {}'.format(lambda_role))
 
     # create policy mySpaceAllowMuch for lambda function
-    print('Creating policy -')
+    print('  Creating policy')
     allow_much_policy_arn = create_policy(
         lambda_role_policy,
         lambda_allow_much
         )
     if allow_much_policy_arn == None:
-        print('Failed to create policy {}'.format(lambda_role_policy))
+        print('    Failed to create policy {}'.format(lambda_role_policy))
         return None
-    print('Created policy {}'.format(lambda_role_policy))
+    print('    Created policy {}'.format(lambda_role_policy))
 
     # attach managed policy to role
-    print('Attaching policy to role -')
+    print('  Attaching policy to role')
     success = attach_managed_policy(
         lambda_role,
         allow_much_policy_arn
         )
     if not success:
         print(
-            'Failed to attached policy {} to role {}'
+            '    Failed to attached policy {} to role {}'
             .format(lambda_role_policy, lambda_role)
             )
         return None
     print(
-        'Attached policy {} to role {}'.format(lambda_role_policy, lambda_role)
+        '    Attached policy {} to role {}'
+        .format(lambda_role_policy, lambda_role)
         )
 
+    print('  Creating function')
     lambda_arn = create_function(
         api_name,
         lambda_role_arn,
@@ -657,11 +659,86 @@ def create_lambda_function(api_name,
         comment_str
         )
     if lambda_arn == None:
-        print('Failed to create lambda function {}'.format(api_name))
+        print('    Failed to create lambda function {}'.format(api_name))
         return None
-    print('Created lambda function {}'.format(api_name))
+    print('    Created lambda function {}'.format(api_name))
 
     return lambda_arn
+
+
+""" delete_lambda_function() deletes the policies, roles, and the 
+lambda function associated with mySpace.
+parameters:
+returns:
+"""
+def delete_lambda_function(api_name):
+    failure = False
+    print('  Deleting function')
+    function_list = list_functions()
+    if function_list == None:
+        failure = True
+    else:
+        if api_name in function_list:
+            if delete_function(function_list[api_name]):
+                print('    Deleted lambda function {}'.format(api_name))
+            else:
+                failure = True
+                print(
+                    '    Failed to delete lambda function {}'
+                    .format(api_name)
+                    )
+
+    # detach policies from roles
+    # list local policies
+    print('  Detaching policies from roles')
+    policy_list = list_policies()
+    if policy_list == None:
+        failure = True
+    else:
+        for policy in policy_list:
+            if policy.startswith(api_name):
+                roles = list_roles_with_attached_policy(policy_list[policy])
+                if roles == None:
+                    failure = True
+                else:
+                    for role in roles:
+                        if detach_managed_policy(role, roles[role]):
+                            print(
+                                '    Detached policy {} from role {}'
+                                .format(policy, role))
+                        else:
+                            print(
+                                '    Failed to detach policy {} from role {}'
+                                .format(policy, role))
+            
+    # list roles
+    print('  Deleting roles')
+    role_list = list_roles()
+    if role_list == None:
+        failure = True
+    else:
+        for role in role_list:
+            if role.startswith(api_name):
+                if delete_role(role):
+                    print('    Deleted role {}'.format(role))
+                else:
+                    print('    Failed to delete role {}'.format(role))
+
+    # list local policies
+    print('  Deleting policies')
+    policy_list = list_policies()
+    if policy_list == None:
+        failure = True
+    else:
+        for policy in policy_list:
+            if policy.startswith(api_name):
+                if delete_policy(policy_list[policy]):
+                    print('    Deleted policy {}'.format(policy))
+                else:
+                    print('    Failed to delete policy {}'.format(policy))
+    if failure:
+        return False
+    return True
 
 
 """ create_api() creates the roles, policies, reources, and methods
@@ -680,25 +757,28 @@ def create_api(api_name,
                    stage_name
                    ):
     # create role for API Gateway to invoke lambda functions
+    print('  Creating API role')
     api_role_arn = create_role(
         api_role,
         assume_role
         )
     if api_role_arn == None:
         return None
-    print('Created role {}'.format(api_role))
+    print('    Created role {}'.format(api_role))
 
     # create policy mySpaceInvokeLambda for apigateway to 
     # invoke lambda function
+    print('  Creating API policy')
     invoke_lambda_policy_arn = create_policy(
         api_role_policy,
         lambda_invoke
         )
     if invoke_lambda_policy_arn == None:
         return None
-    print('Created policy {}'.format(api_role_policy))
+    print('    Created policy {}'.format(api_role_policy))
     
     # attach managed policy to role
+    print('  Attaching policy to role')
     success = attach_managed_policy(
         api_role,
         invoke_lambda_policy_arn
@@ -706,7 +786,7 @@ def create_api(api_name,
     if not success:
         return None
     print(
-        'Attached policy {} to role {}'.format(api_role_policy, api_role))
+        '    Attached policy {} to role {}'.format(api_role_policy, api_role))
 
     # before the creation of the API we need to modify the API template file
     # things that need to be done
@@ -735,26 +815,70 @@ def create_api(api_name,
         return None
 
     # create api
+    print('  Creating API')
     api_id = make_api(api_json_file)
     if api_id == None:
+        print('    Failed to create {} API'.format(api_name))
         return None
+    print('    Created {} API'.format(api_name))
 
     # deploy API into production (prod)
+    print('  Deploying API')
     prod_id = add_api_deployment(
         stage_name,
         api_id
         )
     if prod_id == None:
         print(
-            'Failed to deploy {} version of API {}'
+            '    Failed to deploy {} version of API {}'
             .format(api_name, stage_name)
             )
         return None
 
-    print('Deployed {} version of {} API'.format(stage_name, api_name))
+    print('    Deployed {} version of {} API'.format(stage_name, api_name))
     print(
-        'It can be reached at: https://{}.execute-api.{}.amazonaws.com/{}'
+        '    It can be reached at: https://{}.execute-api.{}.amazonaws.com/{}'
         .format(api_id, region, stage_name)
         )
 
     return api_id
+
+
+""" delete_api() deletes the deployments, the API, the roles and policies
+associated with the API.
+parameters: api_name and stage_name
+returns: returns True on success and False on failure
+"""
+def delete_api(api_name, stage_name):
+    failure = False
+    # delete deployments associated with API
+    print('  Deleting deployment')
+    success = delete_api_deployment(
+        api_name,
+        stage_name
+        )
+    if success:
+        print('    Deleted {}'.format(stage_name))
+    else:
+        print('    Failed to delete {}'.format(stage_name))
+        failure = True
+
+    # delete API
+    print('  Deleting API')
+    apis = list_apis()
+    if apis == None:
+        failure = True
+    else:
+        if api_name in apis:
+            if remove_api(apis[api_name]):
+                print('    Deleted {} API'.format(api_name))
+            else:
+                failure = True
+                print('    Failed to delete {} API'.format(api_name))
+        else:
+            failure = True
+                
+    if failure:
+        return False
+    else:
+        return True
