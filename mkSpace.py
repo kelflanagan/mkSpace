@@ -9,34 +9,6 @@ import sys
 import time
 import util
 
-
-""" delete_mySpace() deletes the role, policy, lambda function
-and the API.
-parameters: config_json
-returns: True on success and False on failure
-"""
-def delete_mySpace(config_json):
-    failure = False
-    print('Deleting API -')
-    success = aws.delete_api(
-        config_json['api_name'],
-        config_json['api_name'] + 'Prod',
-        )
-    if not success:
-        failure = True
-
-    print('Deleting lambda function -')
-    success = aws.delete_lambda_function(
-        config_json['api_name']
-        )
-    if not success:
-        failure = True
-
-    if failure:
-        return False
-    return True
-
-
 """ is_api_remnants() checks to see if any parts of an installation 
 remain. If there are remnants True is returned.
 paramters: api_name
@@ -93,6 +65,33 @@ def is_domain_remnant(domain_name):
             return False
     else:
         return True
+
+
+""" delete_mySpace() deletes the role, policy, lambda function
+and the API.
+parameters: config_json
+returns: True on success and False on failure
+"""
+def delete_mySpace(config_json):
+    failure = False
+    print('Deleting API -')
+    success = aws.delete_api(
+        config_json['api_name'],
+        config_json['api_name'] + 'Prod',
+        )
+    if not success:
+        failure = True
+
+    print('Deleting lambda function -')
+    success = aws.delete_lambda_function(
+        config_json['api_name']
+        )
+    if not success:
+        failure = True
+
+    if failure:
+        return False
+    return True
 
 
 """ create_mySpace() creates the role, policy, lambda function
@@ -234,8 +233,6 @@ if api == None:
 
 # adjust title in API config file
 api['info']['title'] = config_json['api_name']
-#if not util.put_json_object(api, config_json['api_json_file']):
-#    exit()
 
 # create API and infrastructure
 if sys.argv[1] == 'create':
@@ -250,6 +247,45 @@ if sys.argv[1] == 'create':
         print('Install successful')
     else:
         print('Install failed')
+
+# update lambda function code
+elif sys.argv[1] == 'update':
+    if not is_api_remnant(config_json['api_name']):
+        print(
+            '{} API does not exist. Use mkSpace create'
+            .format(config_json['api_name'])
+            )
+        exit()
+
+    if update_mySpace(config_json):
+        print('Update successful')
+    else:
+        print('Update failed')
+
+# delete API and infrastructure
+elif sys.argv[1] == 'delete':
+    if not is_api_remnant(config_json['api_name']):
+        print(
+            '{} API does not exist. Use mkSpace create'
+            .format(config_json['api_name'])
+            )
+        exit()
+
+    if is_domain_remnant(config_json['host_name']):
+        print('The domain {} exists'.format(config_json['host_name']))
+        print('Use \"mkSpace domain delete\" before deleting the API')
+        exit()
+
+    if delete_mySpace(config_json):
+        print(
+            'Successfully deleted the {} service'
+            .format(config_json['api_name'])
+            )
+    else:
+        print(
+            'Failed to delete some components of the {} service'
+            .format(config_json['api_name'])
+            )
 
 # support custom domain names
 elif sys.argv[1] == 'domain':
@@ -337,45 +373,6 @@ elif sys.argv[1] == 'domain':
             print('Deleted custom domain name')
         else:
             print('Failed to delete custom domain name')
-        
-# update lambda function code
-elif sys.argv[1] == 'update':
-    if not is_api_remnant(config_json['api_name']):
-        print(
-            '{} API does not exist. Use mkSpace create'
-            .format(config_json['api_name'])
-            )
-        exit()
-
-    if update_mySpace(config_json):
-        print('Update successful')
-    else:
-        print('Update failed')
-
-# delete API and infrastructure
-elif sys.argv[1] == 'delete':
-    if not is_api_remnant(config_json['api_name']):
-        print(
-            '{} API does not exist. Use mkSpace create'
-            .format(config_json['api_name'])
-            )
-        exit()
-
-    if is_domain_remnant(config_json['host_name']):
-        print('The domain {} exists'.format(config_json['host_name']))
-        print('Use \"mkSpace domain delete\" before deleting the API')
-        exit()
-
-    if delete_mySpace(config_json):
-        print(
-            'Successfully deleted the {} service'
-            .format(config_json['api_name'])
-            )
-    else:
-        print(
-            'Failed to delete some components of the {} service'
-            .format(config_json['api_name'])
-            )
 
 # else bad command
 else:

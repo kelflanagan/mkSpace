@@ -124,12 +124,12 @@ def delete_domain_name(domain_name, api_name, base_path):
     return True
 
 
-""" list_deployments() lists all depluments for an API
+""" list_api_deployments() lists all depluments for an API
 paramters: api_id
 return: list where each entry is a deployment ID associated with the API
 or None on failure
 """
-def list_deployments(api_id):
+def list_api_deployments(api_id):
     deployment_list = []
     api = boto3.client('apigateway')
     try:
@@ -138,7 +138,7 @@ def list_deployments(api_id):
             limit=500
         )
     except botocore.exceptions.ClientError as e:
-        print "list_deployments(): %s" % e
+        print "list_api_deployments(): %s" % e
         return None
 
     if 'items' in response:
@@ -181,7 +181,7 @@ def delete_api_deployment(api_name, stage_name):
         return False
 
     # get deployment_id
-    deployments = list_deployments(api_id)
+    deployments = list_api_deployments(api_id)
     if deployments == None:
         return False
 
