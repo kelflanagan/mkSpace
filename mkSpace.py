@@ -7,44 +7,7 @@ import json
 import string
 import sys
 import time
-
-""" get_json_object opens a file containing JSON and loads it as a 
-python dictionary.
-parameters: filename of JSON file
-returns: dictionary - JSON object on success and None on failure
-"""
-def get_json_object(filename):
-    try:
-        with open(filename, 'r') as fp:
-            j = json.load(fp)
-    except ValueError:
-        print('get_json_object(): malformed JSON')
-        return None
-    except IOError:
-        print('get_json_object(): no such file')
-        return None
-    except:
-        print('get_json_object(): unexpected exception')
-        return None
-
-    return j
-
-
-""" put_json_object writes a python dictionary as JSON filename.
-parameters: json_object and filename - file is pretty printed
-returns: True if successful, False otherwise.
-"""
-def put_json_object(json_object, filename):
-    try:
-        with open(filename, 'w+') as fp:
-            json.dump(json_object, fp, indent=2, separators=(',', ': '))
-    except IOError:
-        print('put_json_object(): cannot write file')
-        return False
-    except:
-        print('put_json_object(): unexpected exception')
-        return False
-    return True
+import util
 
 
 """ delete_mySpace() deletes the role, policy, lambda function
@@ -201,102 +164,6 @@ def is_api_remnant(api_name):
     return False
 
 
-""" deploy_api() deploys a prod version of the API
-paramters: api_name, api_id, stage_name, and region
-returns: prod_id on success, None on failure
-"""
-def deploy_api(api_name, api_id, stage_name, region):
-    # deploy API into production (prod)
-    prod_id = aws.add_api_deployment(stage_name, api_id)
-    if prod_id == None:
-        return None
-
-    print('Deployed {} version of {} API'.format(stage_name, api_name))
-    print(
-        'It can be reached at: https://{}.execute-api.{}.amazonaws.com/{}'
-        .format(api_id, region, stage_name)
-        )
-    return prod_id
-
-
-""" create_api() creates the roles, policies, reources, and methods
-to implement the API.
-paramters: config_json, api_json, lambda_arn, and region
-returns: API_ID on success, None on failure
-"""
-def create_api(config_json, api_json, lambda_arn, region):
-    # create role for API Gateway to invoke lambda functions
-    api_role_arn = aws.create_role(
-        config_json['api_name'] + config_json['aws_api_role'],
-        config_json['aws_assume_role']
-        )
-    if api_role_arn == None:
-        return None
-    print(
-        'Created role {}'
-        .format(config_json['api_name'] + config_json['aws_api_role'])
-        )
-
-    # create policy mySpaceInvokeLambda for apigateway to 
-    # invoke lambda function
-    invoke_lambda_policy_arn = aws.create_policy(
-        config_json['api_name'] + config_json['aws_api_role_policy'],
-        config_json['aws_lambda_invoke']
-        )
-    if invoke_lambda_policy_arn == None:
-        return None
-    print(
-        'Created policy {}'
-        .format(config_json['api_name'] + config_json['aws_api_role_policy'])
-        )
-    
-    # attach managed policy to role
-    success = aws.attach_managed_policy(
-        config_json['api_name'] + config_json['aws_api_role'],
-        invoke_lambda_policy_arn
-        )
-    if not success:
-        return None
-    print(
-        'Attached policy {} to role {}'
-        .format(
-            config_json['api_name'] + config_json['aws_api_role_policy'],
-            config_json['api_name'] + config_json['aws_api_role']
-            )
-        )
-
-    # before the creation of the API we need to modify the API template file
-    # things that need to be done
-    # 1. uri fields need to point to the lambda function created above
-    # 2. credentials field needs to point to role created above
-    #
-    # form uri value
-    uri_value = (
-        'arn:aws:apigateway:' 
-        + region
-        + ':lambda:path/2015-03-31/functions/'
-        + lambda_arn
-        + '/invocations'
-        )
-    # write value into api object in the uri location for each method
-    # also write api_role_arn into the credentials value
-    api_gw_int = 'x-amazon-apigateway-integration'
-    methods = ['get', 'put', 'post', 'delete']
-    for method in methods:
-        api_json['paths']['/'][method][api_gw_int]['uri'] = uri_value
-        api_json['paths']['/'][method][api_gw_int]['credentials'] = api_role_arn
-
-    # write file to disk to save adjustments
-    if not put_json_object(api_json, config_json['api_json_file']):
-        return None
-
-    # create api
-    api_id = aws.create_api(config_json['api_json_file'])
-    if api_id == None:
-        return None
-    return api_id
-
-
 """ create_mySpace() creates the role, policy, lambda function
 and the API.
 parameters: config_json
@@ -351,32 +218,24 @@ def create_mySpace(config_json, api_json):
 
     # create API
     print('Creating API -')
-    api_id = create_api(config_json, api_json, lambda_arn, region)
-    if api_id == None:
-        print(
-            'Failed to create API {}'
-            .format(config_json['api_name'])
-            )
-        return False
-    print(
-        'Created API {}'
-        .format(config_json['api_name'])
+    api_id = aws.create_api(
+        config_json['api_name'],
+        config_json['api_name'] + config_json['aws_api_role'],
+        config_json['aws_assume_role'],
+        config_json['api_name'] + config_json['aws_api_role_policy'],
+        config_json['aws_lambda_invoke'],
+        config_json['api_json_file'],
+        lambda_arn,
+        region,
+        config_json['api_name'] + 'Prod'
         )
 
-    # deploy prod version of API
-    print('Deploying production version of API -')
-    prod_id = deploy_api(
-        api_json['info']['title'], 
-        api_id, 
-        config_json['api_name'] + 'Prod',
-        region
-    )
-    if prod_id == None:
-        print(
-            'Failed to deploy {} version of API {}'
-            .format(config_json['api_name'], config_json['api_name'] + 'Prod')
-            )
+    if api_id == None:
+        print('Failed to create API {}'.format(config_json['api_name']))
         return False
+    print(
+        'Created API {}'.format(config_json['api_name']))
+
     return True
 
 
@@ -436,18 +295,18 @@ if sys.argv[1] == 'help':
     exit()
 
 # get configuration object
-config_json = get_json_object('mkSpace.cfg')
+config_json = util.get_json_object('mkSpace.cfg')
 if config_json == None:
     exit()
 
 # get API config file
-api = get_json_object(config_json['api_json_file'])
+api = util.get_json_object(config_json['api_json_file'])
 if api == None:
     exit()
 
 # adjust title in API config file
 api['info']['title'] = config_json['api_name']
-#if not put_json_object(api, config_json['api_json_file']):
+#if not util.put_json_object(api, config_json['api_json_file']):
 #    exit()
 
 # create API and infrastructure

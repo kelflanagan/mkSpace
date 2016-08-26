@@ -2,7 +2,7 @@ import boto3
 import botocore
 import json
 import time
-
+import util
 
 """ add_domain_name() associates a custom domain name and base path
 mapping with the an API.
@@ -101,65 +101,6 @@ def delete_domain_name(domain_name, api_name, base_path):
     return True
 
 
-""" delete_base_path_mapping() deletes the mapping between an API and
-domain name.
-parameters: domain_name, base_path
-returns True on success and False on failure
-"""
-def delete_base_path_mapping(domain_name, base_path):
-    # create client to api gateway
-    api = boto3.client('apigateway')
-    # make request
-    try:
-        response = api.delete_base_path_mapping(
-            domainName=domain_name,
-            basePath=base_path
-        )
-    except botocore.exceptions.ClientError as e:
-        print "delete_base_path_mapping(): %s" % e
-        print(
-            'base_path = {} and domain_name = {}'
-            .format(base_path, domain_name)
-        )
-        return False
-
-    return True
-
-
-""" add_base_path_mapping() connects the domain name to the API with a base
-path and stage path variable.
-parameters: domain_name, base_path, api_id, stage
-returns True on success and False on failure
-"""
-def add_base_path_mapping(domain_name, base_path, api_id, stage):
-    # create client to api gateway
-    api = boto3.client('apigateway')
-    # make request
-    if stage == '':
-        try:
-            response = api.create_base_path_mapping(
-                domainName=domain_name,
-                basePath=base_path,
-                restApiId=api_id
-            )
-        except botocore.exceptions.ClientError as e:
-            print "add_base_path_mapping(): %s" % e
-            return False
-    else:
-        try:
-            response = api.create_base_path_mapping(
-                domainName=domain_name,
-                basePath=base_path,
-                restApiId=api_id,
-                stage=stage
-            )
-        except botocore.exceptions.ClientError as e:
-            print "add_base_path_mapping(): %s" % e
-            return False
-
-    return True
-
-
 """ list_deployments() lists all depluments for an API
 paramters: api_id
 return: list where each entry is a deployment ID associated with the API
@@ -242,18 +183,18 @@ def delete_api_deployment(api_name, stage_name):
     return True
 
 
-""" create_api creates an API at Amazon AWS API Gateway
+""" make_api creates an API at Amazon AWS API Gateway
 parameters: filename contains the template in swagger 2.0 JSON format
 returns: API_ID on success or None on failure
 """
-def create_api(filename):
+def make_api(filename):
     # read file and convert to bytes
     try:
         with open(filename, 'r') as fp:
             f = fp.read()
             b = bytearray(f)
     except IOError:
-        print('create_api(): cannot open file')
+        print('make_api(): cannot open file')
         return None
         
     # create client to api gateway
@@ -265,7 +206,7 @@ def create_api(filename):
             body=b
             )
     except botocore.exceptions.ClientError as e:
-        print "create_api(): %s" % e
+        print "make_api(): %s" % e
         return None
     return response['id']
 
@@ -660,6 +601,7 @@ parameters: api_name
             lambda_zip_file    - contains the zipped version of the lambda
                                  functions code.
             comment_str        - the description of the lambda function
+returns: lambda_arn on success and None on failure
 """
 def create_lambda_function(api_name, 
                            lambda_role, 
@@ -721,3 +663,98 @@ def create_lambda_function(api_name,
 
     return lambda_arn
 
+
+""" create_api() creates the roles, policies, reources, and methods
+to implement the API.
+paramters: config_json, api_json, lambda_arn, and region
+returns: API_ID on success, None on failure
+"""
+def create_api(api_name,
+                   api_role,
+                   assume_role,
+                   api_role_policy,
+                   lambda_invoke,
+                   api_json_file,
+                   lambda_arn,
+                   region,
+                   stage_name
+                   ):
+    # create role for API Gateway to invoke lambda functions
+    api_role_arn = create_role(
+        api_role,
+        assume_role
+        )
+    if api_role_arn == None:
+        return None
+    print('Created role {}'.format(api_role))
+
+    # create policy mySpaceInvokeLambda for apigateway to 
+    # invoke lambda function
+    invoke_lambda_policy_arn = create_policy(
+        api_role_policy,
+        lambda_invoke
+        )
+    if invoke_lambda_policy_arn == None:
+        return None
+    print('Created policy {}'.format(api_role_policy))
+    
+    # attach managed policy to role
+    success = attach_managed_policy(
+        api_role,
+        invoke_lambda_policy_arn
+        )
+    if not success:
+        return None
+    print(
+        'Attached policy {} to role {}'.format(api_role_policy, api_role))
+
+    # before the creation of the API we need to modify the API template file
+    # things that need to be done
+    # 1. uri fields need to point to the lambda function created above
+    # 2. credentials field needs to point to role created above
+    #
+    # form uri value
+    api_json = util.get_json_object(api_json_file)
+    uri_value = (
+        'arn:aws:apigateway:' 
+        + region
+        + ':lambda:path/2015-03-31/functions/'
+        + lambda_arn
+        + '/invocations'
+        )
+    # write value into api object in the uri location for each method
+    # also write api_role_arn into the credentials value
+    api_gw_int = 'x-amazon-apigateway-integration'
+    methods = ['get', 'put', 'post', 'delete']
+    for method in methods:
+        api_json['paths']['/'][method][api_gw_int]['uri'] = uri_value
+        api_json['paths']['/'][method][api_gw_int]['credentials'] = api_role_arn
+
+    # write file to disk to save adjustments
+    if not util.put_json_object(api_json, api_json_file):
+        return None
+
+    # create api
+    api_id = make_api(api_json_file)
+    if api_id == None:
+        return None
+
+    # deploy API into production (prod)
+    prod_id = add_api_deployment(
+        stage_name,
+        api_id
+        )
+    if prod_id == None:
+        print(
+            'Failed to deploy {} version of API {}'
+            .format(api_name, stage_name)
+            )
+        return None
+
+    print('Deployed {} version of {} API'.format(stage_name, api_name))
+    print(
+        'It can be reached at: https://{}.execute-api.{}.amazonaws.com/{}'
+        .format(api_id, region, stage_name)
+        )
+
+    return api_id
