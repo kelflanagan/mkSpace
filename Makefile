@@ -1,5 +1,5 @@
 MODULE = mkSpace
-SRC = $(MODULE).py aws.py github.py
+SRC = $(MODULE).py aws.py github.py util.py
 CONFIG = $(MODULE).cfg api.json
 m=latest incremental changes
 
