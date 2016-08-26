@@ -42,6 +42,9 @@
         "produces": [
           "application/json"
         ],
+        "consumes": [
+          "application/json"
+        ],
         "responses": {
           "200": {
             "description": "200 response"
@@ -55,10 +58,7 @@
           "500": {
             "description": "500 response"
           }
-        },
-        "consumes": [
-          "application/json"
-        ]
+        }
       },
       "post": {
         "x-amazon-apigateway-integration": {
@@ -97,6 +97,9 @@
         "produces": [
           "application/json"
         ],
+        "consumes": [
+          "application/json"
+        ],
         "responses": {
           "200": {
             "description": "200 response"
@@ -110,10 +113,7 @@
           "500": {
             "description": "500 response"
           }
-        },
-        "consumes": [
-          "application/json"
-        ]
+        }
       },
       "get": {
         "x-amazon-apigateway-integration": {
@@ -146,6 +146,9 @@
         "produces": [
           "application/json"
         ],
+        "consumes": [
+          "application/json"
+        ],
         "responses": {
           "200": {
             "description": "200 response"
@@ -156,10 +159,7 @@
           "500": {
             "description": "500 response"
           }
-        },
-        "consumes": [
-          "application/json"
-        ]
+        }
       },
       "delete": {
         "x-amazon-apigateway-integration": {
@@ -198,6 +198,9 @@
         "produces": [
           "application/json"
         ],
+        "consumes": [
+          "application/json"
+        ],
         "responses": {
           "200": {
             "description": "200 response"
@@ -211,10 +214,7 @@
           "500": {
             "description": "500 response"
           }
-        },
-        "consumes": [
-          "application/json"
-        ]
+        }
       }
     }
   },

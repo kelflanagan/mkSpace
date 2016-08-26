@@ -3,6 +3,104 @@ import botocore
 import json
 import time
 
+
+""" add_domain_name() associates a custom domain name and base path
+mapping with the an API.
+paramters: host_name, api_name, base_path, stage, certificate (crt), 
+           key, certificate chain (chain)
+returns url to point DNS to on success and None on failure
+"""
+def add_domain_name(host_name, api_name, base_path, stage, crt, key, chain):
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        dn = api.create_domain_name(
+            domainName=host_name,
+            certificateName=api_name,
+            certificateBody=crt,
+            certificatePrivateKey=key,
+            certificateChain=chain
+            )
+    except botocore.exceptions.ClientError as e:
+        print "add_domain_name(): %s" % e
+        return None
+
+    # connect API to domain name and add base_path
+    # get API ID
+    apis = list_apis()
+    if apis == None:
+        return None
+    if api_name not in apis:
+        return None
+    api_id = apis[api_name]
+    if stage == '':
+        try:
+            response = api.create_base_path_mapping(
+                domainName=host_name,
+                basePath=base_path,
+                restApiId=api_id
+            )
+        except botocore.exceptions.ClientError as e:
+            print "add_domain_name(): %s" % e
+            return None
+    else:
+        try:
+            response = api.create_base_path_mapping(
+                domainName=host_name,
+                basePath=base_path,
+                restApiId=api_id,
+                stage=stage
+            )
+        except botocore.exceptions.ClientError as e:
+            print "add_domain_name(): %s" % e
+            return None
+
+    return dn['distributionDomainName']
+
+
+""" delete_domain_name() deletes the custom domain name and associated base 
+path mapping.
+parameters: domain_name, api_name, base_path
+returns: True on success and False on failure
+"""
+def delete_domain_name(domain_name, api_name, base_path):
+    failure = False
+    # create client to api gateway
+    api = boto3.client('apigateway')
+
+    #delete base path mapping
+    try:
+        response = api.delete_base_path_mapping(
+            domainName=domain_name,
+            basePath=base_path
+        )
+    except botocore.exceptions.ClientError as e:
+        print "delete_domain_name(): %s" % e
+        print(
+            'base_path = {} and domain_name = {}'
+            .format(base_path, domain_name)
+        )
+        failure = True
+
+    # delete custom domain name
+    try:
+        response = api.delete_domain_name(
+            domainName=domain_name
+        )
+    except botocore.exceptions.ClientError as e:
+        print "delete_domain_name(): %s" % e
+        print(
+            'base_path = {} and domain_name = {}'
+            .format(base_path, domain_name)
+        )
+        failure = True
+
+    if failure:
+        return False
+    return True
+
+
 """ delete_base_path_mapping() deletes the mapping between an API and
 domain name.
 parameters: domain_name, base_path
@@ -60,29 +158,6 @@ def add_base_path_mapping(domain_name, base_path, api_id, stage):
             return False
 
     return True
-
-
-""" add_domain_name() allows the user to point a custom
-domain name at their API. cert and cert_chain are pem formatted.
-parameters: domain_name, cert_name, cert, cert_private_key, cert_chain
-returns: distribution_domain_name on success and None on failure
-"""
-def add_domain_name(domain_name, cert_name, cert, cert_private_key, cert_chain):
-    # create client to api gateway
-    api = boto3.client('apigateway')
-    # make request
-    try:
-        response = api.create_domain_name(
-            domainName=domain_name,
-            certificateName=cert_name,
-            certificateBody=cert,
-            certificatePrivateKey=cert_private_key,
-            certificateChain=cert_chain
-            )
-    except botocore.exceptions.ClientError as e:
-        print "deploy_api(): %s" % e
-        return None
-    return response['distributionDomainName']
 
 
 """ list_deployments() lists all depluments for an API
@@ -565,3 +640,84 @@ def list_functions():
             more_pages = False
 
     return function_list
+
+
+""" create_lambda_function() creates a role, a policy, attaches the two, and 
+creates a lambda function.
+parameters: api_name
+            lambda_role        - role name that will have policy attached
+                                 the policy is defined in mkSpace.cfg file
+                                 under the key with name defined by 
+                                 lambda_assume_role that currently gives 
+                                 apigateway and lambda the right to assume
+                                 the role of the user.
+            lambda_assume_role - contains the name of the key described above
+            lambda_role_policy - contains the name of the policy that will be
+                                 attached to the above role.
+            lambda_allow_much  - contains the name of the key found in 
+                                 mkSpace.cfg. The value of the key is the
+                                 policy.
+            lambda_zip_file    - contains the zipped version of the lambda
+                                 functions code.
+            comment_str        - the description of the lambda function
+"""
+def create_lambda_function(api_name, 
+                           lambda_role, 
+                           lambda_assume_role, 
+                           lambda_role_policy, 
+                           lambda_allow_much, 
+                           lambda_zip_file, 
+                           comment_str
+                           ):
+
+    # create role for lambda function
+    print('Creating role -')
+    lambda_role_arn = create_role(
+        lambda_role,
+        lambda_assume_role
+        )
+    if lambda_role_arn == None:
+        print('Failed to create role {}'.format(lambda_role))
+        return None
+    print('Created role {}'.format(lambda_role))
+
+    # create policy mySpaceAllowMuch for lambda function
+    print('Creating policy -')
+    allow_much_policy_arn = create_policy(
+        lambda_role_policy,
+        lambda_allow_much
+        )
+    if allow_much_policy_arn == None:
+        print('Failed to create policy {}'.format(lambda_role_policy))
+        return None
+    print('Created policy {}'.format(lambda_role_policy))
+
+    # attach managed policy to role
+    print('Attaching policy to role -')
+    success = attach_managed_policy(
+        lambda_role,
+        allow_much_policy_arn
+        )
+    if not success:
+        print(
+            'Failed to attached policy {} to role {}'
+            .format(lambda_role_policy, lambda_role)
+            )
+        return None
+    print(
+        'Attached policy {} to role {}'.format(lambda_role_policy, lambda_role)
+        )
+
+    lambda_arn = create_function(
+        api_name,
+        lambda_role_arn,
+        lambda_zip_file,
+        comment_str
+        )
+    if lambda_arn == None:
+        print('Failed to create lambda function {}'.format(api_name))
+        return None
+    print('Created lambda function {}'.format(api_name))
+
+    return lambda_arn
+

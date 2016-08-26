@@ -46,113 +46,6 @@ def put_json_object(json_object, filename):
         return False
     return True
 
-def delete_domain_name(config_json):
-    failure = False
-    # delete base path mapping
-    print('Deleting base path mapping -')
-    success = aws.delete_base_path_mapping(
-        config_json['host_name'], 
-        config_json['api_name']
-    )
-    if success:
-        print(
-            'Deleted basepath mapping {}/{}'
-            .format(config_json['host_name'], config_json['api_name'])
-        )
-    else:
-        failure = True
-        print(
-            'Did not delete basepath mapping {}/{}'
-            .format(config_json['host_name'], config_json['api_name'])
-        )
-
-    # not done
-    if failure:
-        return False
-    return True
-
-
-""" add_domain_name() associates a custom domain name with the mySpace
-API.
-paramters: config_json
-returns url to point DNS to on success and None on failure
-"""
-def add_domain_name(config_json):
-    # collect certificate
-    try:
-        with open(config_json['host_name_crt_file'], 'r') as crt_fp:
-            crt = crt_fp.read()
-    except IOError:
-        print('add_domain_name(): no such certificate file')
-        return False
-    except:
-        print('add_domain_name(): unexpected exception')
-        return False
-
-    # collect key
-    try:
-        with open(config_json['host_name_key_file'], 'r') as key_fp:
-            key = key_fp.read()
-    except IOError:
-        print('add_domain_name(): no such key file')
-        return False
-    except:
-        print('add_domain_name(): unexpected exception')
-        return False
-
-    # collect chain
-    try:
-        with open(config_json['crt_chain'], 'r') as chain_fp:
-            chain = chain_fp.read()
-    except IOError:
-        print('add_domain_name(): no such chain file')
-        return False
-    except:
-        print('add_domain_name(): unexpected exception')
-        return False
-
-    response = aws.add_domain_name(
-        config_json['host_name'],
-        config_json['api_name'],
-        crt,
-        key,
-        chain
-        )
-    if response == None:
-        return False
-
-    # connect API to domain name and add base_path
-    # get API ID
-    apis = aws.list_apis()
-    if apis == None:
-        return False
-    if config_json['api_name'] not in apis:
-        return False
-    api_id = apis[config_json['api_name']]
-    success = aws.add_base_path_mapping(
-        config_json['host_name'],
-        config_json['api_name'],
-        api_id, 
-        ''
-        )
-    if not success:
-        return False
-        
-    print('Custom domain successfully added')
-    print(
-        'Please set the CNAME for {} to {} to complete the setup'
-        .format(config_json['host_name'], response)
-        )
-    print(
-        '{} API can be reached at {}/{}'
-        .format(
-            config_json['api_name'], 
-            config_json['host_name'], 
-            config_json['api_name']
-            )
-        )
-    return True
-
 
 """ delete_mySpace() deletes the role, policy, lambda function
 and the API.
@@ -410,68 +303,9 @@ parameters: config_json
 returns: True on success and False on failure
 """
 def create_mySpace(config_json, api_json):
-    # create role for lambda function
-    print('Creating role -')
-    lambda_role_arn = aws.create_role(
-        config_json['api_name'] + config_json['aws_lambda_role'],
-        config_json['aws_assume_role']
-        )
-    if lambda_role_arn == None:
-        print(
-            'Failed to create role {}'
-            .format(config_json['api_name'] + config_json['aws_lambda_role'])
-            )
-        return False
-    print(
-        'Created role {}'
-        .format(config_json['api_name'] + config_json['aws_lambda_role'])
-        )
-
-    # create policy mySpaceAllowMuch for lambda function
-    print('Creating policy -')
-    allow_much_policy_arn = aws.create_policy(
-        config_json['api_name'] + config_json['aws_lambda_role_policy'],
-        config_json['aws_allow_much']
-        )
-    if allow_much_policy_arn == None:
-        print(
-            'Failed to create policy {}'
-            .format(
-                config_json['api_name'] + config_json['aws_lambda_role_policy']
-                )
-            )
-        return False
-    print(
-        'Created policy {}'
-        .format(config_json['api_name'] + config_json['aws_lambda_role_policy'])
-        )
-
-    # attach managed policy to role
-    print('Attaching policy to role -')
-    success = aws.attach_managed_policy(
-        config_json['api_name'] + config_json['aws_lambda_role'],
-        allow_much_policy_arn
-        )
-    if not success:
-        print(
-            'Failed to attached policy {} to role {}'
-            .format(
-                config_json['api_name'] + config_json['aws_lambda_role_policy'],
-                config_json['api_name'] + config_json['aws_lambda_role']
-                )
-            )
-        return False
-    print(
-        'Attached policy {} to role {}'
-        .format(
-            config_json['api_name'] + config_json['aws_lambda_role_policy'],
-            config_json['api_name'] + config_json['aws_lambda_role']
-            )
-        )
-
     # get function code in zip format from github repo
     print('Downloading lambda function code -')
-    success, zip_file = github.get_zipfile(
+    success, lambda_zip_file = github.get_zipfile(
         config_json['github_file'], 
         config_json['github_repo'], 
         config_json['github_repo_owner']
@@ -493,29 +327,23 @@ def create_mySpace(config_json, api_json):
             )
         )
 
-    # create lambda function
-    print('Creating lambda function -')
-    comment_str = (
+    # form description
+    description = (
         config_json['api_name']
         + ' is the installer app for the '
         + config_json['api_name']
         + ' services'
         )
-    
-    lambda_arn = aws.create_function(
+
+    print('Creating lambda function -')
+    lambda_arn = aws.create_lambda_function(
         config_json['api_name'],
-        lambda_role_arn,
-        zip_file,
-        'test'
-        )
-    if lambda_arn == None:
-        print(
-            'Failed to create lambda function {}'
-            .format(config_json['api_name'])
-            )
-        return False
-    print(
-        'Created lambda function {}'.format(config_json['api_name'])
+        config_json['api_name'] + config_json['aws_lambda_role'],
+        config_json['aws_assume_role'],
+        config_json['api_name'] + config_json['aws_lambda_role_policy'],
+        config_json['aws_allow_much'],
+        lambda_zip_file,
+        description
         )
 
     # acquire region from lambda arn
@@ -599,12 +427,12 @@ def update_mySpace_code(config_json):
 # read command line arguments and give user feedback
 if len(sys.argv) == 1:
     print('usage : mkSpace create | delete | update | domain [options]')
-    print('domain options include add | delete | update')
+    print('domain options include add | delete')
     exit()
 
 if sys.argv[1] == 'help':
     print('usage : mkSpace create | delete | update | domain [options]')
-    print('domain options include add | delete | update')
+    print('domain options include add | delete')
     exit()
 
 # get configuration object
@@ -639,7 +467,7 @@ if sys.argv[1] == 'create':
 # support custom domain names
 elif sys.argv[1] == 'domain':
     if len(sys.argv) != 3:
-        print('usage : mkSpace domain add | delete | update')
+        print('usage : mkSpace domain add | delete')
         exit()
 
     if not is_api_remnant(config_json['api_name']):
@@ -650,23 +478,79 @@ elif sys.argv[1] == 'domain':
         exit()
 
     if sys.argv[2] == 'add':
-        if add_domain_name(config_json):
-            print('Custom domain name added')
+        # collect certificate, key, and chain
+        print('Reading certificate file')
+        try:
+            with open(config_json['host_name_crt_file'], 'r') as crt_fp:
+                crt = crt_fp.read()
+        except IOError:
+            print("Can't find certificate file")
+            exit()
+        except:
+            print('Unexpected exception getting certificate file')
+            exit()
+
+        # collect key
+        print('Reading key file')
+        try:
+            with open(config_json['host_name_key_file'], 'r') as key_fp:
+                key = key_fp.read()
+        except IOError:
+            print("Can't find key file")
+            exit()
+        except:
+            print('Unexpected exception getting key file')
+            exit()
+
+        # collect chain
+        print('Reading certificate chain file')
+        try:
+            with open(config_json['crt_chain'], 'r') as chain_fp:
+                chain = chain_fp.read()
+        except IOError:
+            print("Can't find certificate chain file")
+            exit()
+        except:
+            print('Unexpected exception getting certificate chain file')
+            exit()
+
+        url = aws.add_domain_name(
+            config_json['host_name'],
+            config_json['api_name'],
+            config_json['api_name'],
+            config_json['api_name'] + 'Prod',
+            crt, 
+            key, 
+            chain
+            )
+        if url != None:
+            print('Custom domain successfully added')
+            print(
+                'Please set the CNAME for {} to {} to complete the setup'
+                .format(config_json['host_name'], url)
+                )
+            print(
+                '{} API can be reached at {}/{}'
+                .format(
+                    config_json['api_name'], 
+                    config_json['host_name'], 
+                    config_json['api_name']
+                    )
+                )
         else:
-            print('Custom domain name add failed')
+            print('Failed to successfully add custom domain name')
         
     if sys.argv[2] == 'delete':
-        if delete_domain_name(config_json):
-            print('Custom domain name deleted')
+        success = aws.delete_domain_name(
+            config_json['host_name'], 
+            config_json['api_name'],
+            config_json['api_name']
+            )
+        if success:
+            print('Deleted custom domain name')
         else:
-            print('Custom domain name delete failed')
+            print('Failed to delete custom domain name')
         
-    if sys.argv[2] == 'update':
-        if add_domain_name(config_json):
-            print('Custom domain name updated')
-        else:
-            print('Custom domain name update failed')
-
 # update lambda function code
 elif sys.argv[1] == 'update':
     if not is_api_remnant(config_json['api_name']):
@@ -704,6 +588,6 @@ elif sys.argv[1] == 'delete':
 # else bad command
 else:
     print('usage : mkSpace create | delete | update | domain [options]')
-    print('domain options include add | delete | update')
+    print('domain options include add | delete')
     exit()
 
