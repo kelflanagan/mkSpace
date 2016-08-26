@@ -4,6 +4,29 @@ import json
 import time
 import util
 
+
+""" list_domains() returns a list of existing domain names.
+parameters: none
+returns: True and a list of existing domains or False on error
+"""
+def list_domains():
+    domain_list = []
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    try:
+        response = api.get_domain_names(
+            limit=500
+            )
+    except botocore.exceptions.ClientError as e:
+        print "list_domains(): %s" % e
+        return False
+
+    for item in response['items']:
+        domain_list.append(item['domainName'])
+
+    return True, domain_list
+
+
 """ add_domain_name() associates a custom domain name and base path
 mapping with the an API.
 paramters: host_name, api_name, base_path, stage, certificate (crt), 

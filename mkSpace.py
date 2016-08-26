@@ -78,6 +78,23 @@ def is_api_remnant(api_name):
     return False
 
 
+""" is_domain_remnant() checks to see if any parts of a custom domain
+remain. If there are remnants True is returned.
+paramters: domain_name
+returns: True if remnant exists, False if they do not, error returns True
+causing us to try again
+"""
+def is_domain_remnant(domain_name):
+    success, list = aws.list_domains()
+    if success:
+        if domain_name in list:
+            return True
+        else:
+            return False
+    else:
+        return True
+
+
 """ create_mySpace() creates the role, policy, lambda function
 and the API.
 parameters: config_json
@@ -342,6 +359,11 @@ elif sys.argv[1] == 'delete':
             '{} API does not exist. Use mkSpace create'
             .format(config_json['api_name'])
             )
+        exit()
+
+    if is_domain_remnant(config_json['host_name']):
+        print('The domain {} exists'.format(config_json['host_name']))
+        print('Use \"mkSpace domain delete\" before deleting the API')
         exit()
 
     if delete_mySpace(config_json):
