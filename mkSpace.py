@@ -239,12 +239,12 @@ def create_mySpace(config_json, api_json):
     return True
 
 
-""" update_mySpace_code() updates just the code in an existing lambda 
+""" update_mySpace() updates just the code in an existing lambda 
 function.
 parameters: config_json
 returns: True on success and False on failure
 """
-def update_mySpace_code(config_json):
+def update_mySpace(config_json):
     # get function code in zip format from github repo
     success, zip_file = github.get_zipfile(
         config_json['github_file'], 
@@ -271,9 +271,6 @@ def update_mySpace_code(config_json):
         'Updated code for lambda function {}'
         .format(config_json['api_name'])
         )
-
-    # determine if custom domain should be created
-    # work goes here
 
     return True
 
@@ -419,7 +416,7 @@ elif sys.argv[1] == 'update':
             )
         exit()
 
-    if update_mySpace_code(config_json):
+    if update_mySpace(config_json):
         print('Update successful')
     else:
         print('Update failed')
