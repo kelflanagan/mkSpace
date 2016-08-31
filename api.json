@@ -6,6 +6,20 @@
   "paths": {
     "/": {
       "put": {
+        "responses": {
+          "200": {
+            "description": "200 response"
+          },
+          "405": {
+            "description": "405 response"
+          },
+          "404": {
+            "description": "404 response"
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
         "x-amazon-apigateway-integration": {
           "passthroughBehavior": "when_no_templates",
           "responses": {
@@ -42,6 +56,11 @@
         "consumes": [
           "application/json"
         ],
+        "produces": [
+          "application/json"
+        ]
+      },
+      "post": {
         "responses": {
           "200": {
             "description": "200 response"
@@ -56,11 +75,6 @@
             "description": "500 response"
           }
         },
-        "produces": [
-          "application/json"
-        ]
-      },
-      "post": {
         "x-amazon-apigateway-integration": {
           "passthroughBehavior": "when_no_templates",
           "responses": {
@@ -97,6 +111,11 @@
         "consumes": [
           "application/json"
         ],
+        "produces": [
+          "application/json"
+        ]
+      },
+      "delete": {
         "responses": {
           "200": {
             "description": "200 response"
@@ -111,11 +130,6 @@
             "description": "500 response"
           }
         },
-        "produces": [
-          "application/json"
-        ]
-      },
-      "delete": {
         "x-amazon-apigateway-integration": {
           "passthroughBehavior": "when_no_templates",
           "responses": {
@@ -152,12 +166,14 @@
         "consumes": [
           "application/json"
         ],
+        "produces": [
+          "application/json"
+        ]
+      },
+      "get": {
         "responses": {
           "200": {
             "description": "200 response"
-          },
-          "405": {
-            "description": "405 response"
           },
           "404": {
             "description": "404 response"
@@ -166,11 +182,6 @@
             "description": "500 response"
           }
         },
-        "produces": [
-          "application/json"
-        ]
-      },
-      "get": {
         "x-amazon-apigateway-integration": {
           "passthroughBehavior": "when_no_templates",
           "responses": {
@@ -201,17 +212,6 @@
         "consumes": [
           "application/json"
         ],
-        "responses": {
-          "200": {
-            "description": "200 response"
-          },
-          "404": {
-            "description": "404 response"
-          },
-          "500": {
-            "description": "500 response"
-          }
-        },
         "produces": [
           "application/json"
         ]

@@ -9,6 +9,45 @@ import sys
 import time
 import util
 
+import boto3
+import botocore
+
+def test_put_rest_api(api_json_file):
+    # get restAPIID
+    apis = aws.list_apis()
+    if apis == None:
+        return False
+    if 'mySpace' not in apis:
+        return False
+    api_id = apis['mySpace']
+    
+    # get json object representing the API to merge
+    # read file and convert to bytes
+    try:
+        with open(api_json_file, 'r') as fp:
+            f = fp.read()
+            b = bytearray(f)
+    except IOError:
+        print('test_put_rest_api(): cannot open file')
+        return False
+        
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        response = api.put_rest_api(
+            restApiId=api_id,
+            mode='merge',
+            failOnWarnings=False,
+            body=b
+            )
+    except botocore.exceptions.ClientError as e:
+        print "test_put_rest_api(): %s" % e
+        return False
+
+    return True
+
+
 """ is_api_remnants() checks to see if any parts of an installation 
 remain. If there are remnants True is returned.
 paramters: api_name
@@ -247,6 +286,13 @@ if sys.argv[1] == 'create':
         print('Install successful')
     else:
         print('Install failed')
+
+# test merge in put_rest_api()
+elif sys.argv[1] == 'test':
+    if test_put_rest_api('merge_test.json'):
+        print('Done without error')
+    else:
+        print('Test failed')
 
 # update lambda function code
 elif sys.argv[1] == 'update':
