@@ -1,8 +1,63 @@
 import boto3
 import botocore
 import json
+import string
 import time
 import util
+
+
+""" list_sns_topics() returns a dictionary of topic names and arns.
+paramters: no parameters
+returns: dictionary where the keys represent topic names and the
+assocaited values are their respective AWS ARNs
+"""
+def list_sns_topics():
+    topic_list = {}
+    # create boto3 lambda client
+    sns = boto3.client('sns')
+
+    more_pages = True
+    try:
+        response = sns.list_topics()
+    except botocore.exceptions.ClientError as e:
+        print "list_sns_topics(): %s" % e
+        return None
+
+    while more_pages:
+        for topic in response['Topics']:
+            # acquire topic name from arn
+            name = string.split(topic['TopicArn'], ':')[5]
+            topic_list[name] = topic['TopicArn']
+        if 'NextToken' in response:
+            try:
+                response = sns.list_topics(
+                    NextToken=response['NextToken']
+                    )
+            except botocore.exceptions.ClientError as e:
+                print "list_sns_topics(): %s" % e
+                return None
+        else:
+            more_pages = False
+
+    return topic_list
+
+
+""" create_sns_topic() creates a topic. If the topic exists its ARN is returned
+parameters: topic_name
+returns: True and topic_arn on success and False and None on failure
+"""
+def create_sns_topic(topic_name):
+    # create boto3 lambda client
+    sns = boto3.client('sns')
+    try:
+        response = sns.create_topic(
+            Name=topic_name
+            )
+    except botocore.exceptions.ClientError as e:
+        print "create_sns_topic(): %s" % e
+        return None
+    
+    return response['TopicArn']
 
 
 """ list_domains() returns a list of existing domain names.
