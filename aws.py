@@ -6,6 +6,150 @@ import time
 import util
 
 
+####### THIS HAS NOT BEEN TESTED ########
+""" verify_email_address() verifies the provided email
+parameters: email_address
+returns: True and message on success and False and None on failure.
+"""
+def verify_email_address(email_address):
+    # create boto3 client
+    ses = boto3.client('ses')
+
+    try:
+        ses.verify_email_address(
+            EmailAddress=email_address
+            )
+    except botocore.exceptions.ClientError as e:
+        print "verify_email_address(): %s" % e
+        return False
+    return True
+###############
+
+
+""" put_dynamodb_item() puts an item into a dynamodb table
+paramters: table_name, item_name, item_type, item_value
+returns: True on success and False on failure
+"""
+def put_dynamodb_item(table_name, item_name, item_type, item_value):
+    # create boto3 client
+    db = boto3.client('dynamodb')
+    try:
+        response = db.put_item(
+            TableName=table_name,
+            Item={
+                item_name : {
+                    item_type : item_value
+                    }
+                }
+            )
+    except botocore.exceptions.ClientError as e:
+        print "put_dynamodb_item(): %s" % e
+        return False
+    return True
+    
+
+""" get_dynamodb_table_status() returns the status of the table identified 
+parameters: table_name
+returns: None for failure or CREATING|UPDATING|DELETING|ACTIVE
+"""
+def get_dynamodb_table_status(table_name):
+    # create boto3 client
+    db = boto3.client('dynamodb')
+    try:
+        response = db.describe_table(
+            TableName=table_name
+            )
+    except botocore.exceptions.ClientError as e:
+        print "get_dynamodb_table_status(): %s" % e
+        return None
+    
+    return response['Table']['TableStatus']
+
+
+""" get_dynamodb_table_arn() returns the arn for the table identified 
+parameters: table_name
+returns: Arn if the table exists and None otherwise
+"""
+def get_dynamodb_table_arn(table_name):
+    # create boto3 client
+    db = boto3.client('dynamodb')
+    try:
+        response = db.describe_table(
+            TableName=table_name
+            )
+    except botocore.exceptions.ClientError as e:
+        print "get_dynamodb_table_arn(): %s" % e
+        return None
+    
+    return response['Table']['TableArn']
+
+
+""" list_dynamodb_tables() returns a dictionary of db table names
+paramters: no parameters
+returns: list of table names
+"""
+def list_dynamodb_tables():
+    table_list = []
+    # create boto3 client
+    db = boto3.client('dynamodb')
+
+    more_pages = True
+    try:
+        response = db.list_tables()
+    except botocore.exceptions.ClientError as e:
+        print "list_dynamodb_tables(): %s" % e
+        return None
+
+    while more_pages:
+        table_list += response['TableNames']
+        if 'LastEvaluatedTableName' in response:
+            try:
+                response = db.list_tables(
+                    ExclusiveStartTableName=response['LastEvaluatedTableName']
+                    )
+            except botocore.exceptions.ClientError as e:
+                print "list_dynamodb_tables(): %s" % e
+                return None
+        else:
+            more_pages = False
+
+    return table_list
+
+
+""" create_dynamodb_table() creates an empty dynamodb table.
+paramters: table_name (the namespaced version of the table name
+           primary_key (primary key name, string)
+returns: the arn of the created table
+"""
+def create_dynamodb_table(table_name, primary_key):
+    # create boto3 client
+    db = boto3.client('dynamodb')
+    try:
+        response = db.create_table(
+            AttributeDefinitions=[
+                {
+                    'AttributeName': primary_key,
+                    'AttributeType': 'S'
+                    }
+                ],
+            TableName=table_name,
+            KeySchema=[
+                {
+                    'AttributeName': primary_key,
+                    'KeyType': 'HASH'
+                    }
+                ],
+            ProvisionedThroughput={
+                'ReadCapacityUnits': 5,
+                'WriteCapacityUnits': 5
+                }
+            )
+    except botocore.exceptions.ClientError as e:
+        print "create_dynamodb_table(): %s" % e
+        return None
+    return response['TableDescription']['TableArn']
+
+
 """ list_sns_topics() returns a dictionary of topic names and arns.
 paramters: no parameters
 returns: dictionary where the keys represent topic names and the
@@ -13,7 +157,7 @@ assocaited values are their respective AWS ARNs
 """
 def list_sns_topics():
     topic_list = {}
-    # create boto3 lambda client
+    # create boto3 client
     sns = boto3.client('sns')
 
     more_pages = True
@@ -560,7 +704,7 @@ paramters: cfg_json where the github info is found role_arn to
 attach to this lambda function
 returns: lambds function ARN
 """
-def create_function(name, role_arn, zip_file, description):
+def create_function(name, role_arn, zip_file, description, timeout):
     e = None
 
     # create boto3 lambda client
@@ -578,7 +722,8 @@ def create_function(name, role_arn, zip_file, description):
                 Role=role_arn,
                 Handler=name + '.' + name,
                 Code={"ZipFile" : zip_file},
-                Description=description
+                Description=description,
+                Timeout=timeout
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
@@ -679,6 +824,7 @@ parameters: api_name
             lambda_zip_file    - contains the zipped version of the lambda
                                  functions code.
             comment_str        - the description of the lambda function
+            runtime            - time in seconds that we permit lambda to run
 returns: lambda_arn on success and None on failure
 """
 def create_lambda_function(api_name, 
@@ -687,7 +833,8 @@ def create_lambda_function(api_name,
                            lambda_role_policy, 
                            lambda_allow_much, 
                            lambda_zip_file, 
-                           comment_str
+                           comment_str,
+                           timeout
                            ):
 
     # create role for lambda function
@@ -734,7 +881,8 @@ def create_lambda_function(api_name,
         api_name,
         lambda_role_arn,
         lambda_zip_file,
-        comment_str
+        comment_str,
+        timeout
         )
     if lambda_arn == None:
         print('    Failed to create lambda function {}'.format(api_name))
