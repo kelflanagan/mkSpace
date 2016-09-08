@@ -704,7 +704,7 @@ paramters: cfg_json where the github info is found role_arn to
 attach to this lambda function
 returns: lambds function ARN
 """
-def create_function(name, role_arn, zip_file, description, timeout):
+def create_function(name, role_arn, zip_file, description):
     e = None
 
     # create boto3 lambda client
@@ -722,8 +722,7 @@ def create_function(name, role_arn, zip_file, description, timeout):
                 Role=role_arn,
                 Handler=name + '.' + name,
                 Code={"ZipFile" : zip_file},
-                Description=description,
-                Timeout=timeout
+                Description=description
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
@@ -833,8 +832,7 @@ def create_lambda_function(api_name,
                            lambda_role_policy, 
                            lambda_allow_much, 
                            lambda_zip_file, 
-                           comment_str,
-                           timeout
+                           comment_str
                            ):
 
     # create role for lambda function
@@ -881,8 +879,7 @@ def create_lambda_function(api_name,
         api_name,
         lambda_role_arn,
         lambda_zip_file,
-        comment_str,
-        timeout
+        comment_str
         )
     if lambda_arn == None:
         print('    Failed to create lambda function {}'.format(api_name))

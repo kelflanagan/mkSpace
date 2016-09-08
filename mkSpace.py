@@ -179,8 +179,7 @@ def create_mySpace(config_json, api_json):
         config_json['api_name'] + config_json['aws_lambda_role_policy'],
         config_json['aws_allow_much'],
         lambda_zip_file,
-        description,
-        config_json['aws_lambda_runtime']
+        description
         )
 
     # acquire region from lambda arn
