@@ -722,7 +722,8 @@ def create_function(name, role_arn, zip_file, description):
                 Role=role_arn,
                 Handler=name + '.' + name,
                 Code={"ZipFile" : zip_file},
-                Description=description
+                Description=description,
+                Timeout=10
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
