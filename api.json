@@ -50,7 +50,7 @@
           "requestTemplates": {
             "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
-          "credentials": "arn:aws:iam::356335180012:role/mySpace_invoke_lambda",
+          "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
           "type": "aws"
         },
         "consumes": [
@@ -105,7 +105,7 @@
           "requestTemplates": {
             "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n#foreach($key in $myobj.keySet())\n    \"$key\" : \"$myobj.get($key)\"#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
-          "credentials": "arn:aws:iam::356335180012:role/mySpace_invoke_lambda",
+          "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
           "type": "aws"
         },
         "consumes": [
@@ -160,7 +160,7 @@
           "requestTemplates": {
             "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n#foreach($key in $myobj.keySet())\n    \"$key\" : $myobj.get($key)#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
-          "credentials": "arn:aws:iam::356335180012:role/mySpace_invoke_lambda",
+          "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
           "type": "aws"
         },
         "consumes": [
@@ -206,7 +206,7 @@
           "requestTemplates": {
             "application/json": "{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\"\n}"
           },
-          "credentials": "arn:aws:iam::356335180012:role/mySpace_invoke_lambda",
+          "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
           "type": "aws"
         },
         "consumes": [

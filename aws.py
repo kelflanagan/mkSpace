@@ -26,27 +26,40 @@ def verify_email_address(email_address):
 ###############
 
 
-""" put_dynamodb_item() puts an item into a dynamodb table
-paramters: table_name, item_name, item_type, item_value
+""" update_dynamodb_item() creates or updates an item in the db
+parameters: t_name (table name)
+            k (primary HASH key)
+            kt (key type)
+            kv (key value)
+            item_name
+            item_type
+            item_value
 returns: True on success and False on failure
 """
-def put_dynamodb_item(table_name, item_name, item_type, item_value):
-    # create boto3 client
+def update_dynamodb_item(t_name, k, kt, kv, item_name, item_type, item_value):
     db = boto3.client('dynamodb')
     try:
-        response = db.put_item(
-            TableName=table_name,
-            Item={
-                item_name : {
-                    item_type : item_value
-                    }
+        response = db.update_item(
+            TableName = t_name,
+            Key = {
+                k : {kt : kv}
+                },
+            UpdateExpression = (
+                'set ' + item_name + ' = :iv'
+                ),
+            ExpressionAttributeValues = {
+                ':iv' : {item_type : item_value}
                 }
             )
     except botocore.exceptions.ClientError as e:
-        print "put_dynamodb_item(): %s" % e
+        print "update_dynamodb_item(): %s" % e
         return False
-    return True
-    
+    # test for success
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        return True
+    else:
+        return False
+
 
 """ get_dynamodb_table_status() returns the status of the table identified 
 parameters: table_name
@@ -974,7 +987,7 @@ def create_api(api_name,
                    api_role,
                    assume_role,
                    api_role_policy,
-                   lambda_invoke,
+                   api_invoke_lambda_policy,
                    api_json_file,
                    lambda_arn,
                    region,
@@ -995,7 +1008,7 @@ def create_api(api_name,
     print('  Creating API policy')
     invoke_lambda_policy_arn = create_policy(
         api_role_policy,
-        lambda_invoke
+        api_invoke_lambda_policy
         )
     if invoke_lambda_policy_arn == None:
         return None

@@ -174,10 +174,10 @@ def create_mySpace(config_json, api_json):
     print('Creating lambda function -')
     lambda_arn = aws.create_lambda_function(
         config_json['api_name'],
-        config_json['api_name'] + config_json['aws_lambda_role'],
-        config_json['aws_assume_role'],
-        config_json['api_name'] + config_json['aws_lambda_role_policy'],
-        config_json['aws_allow_much'],
+        config_json['api_name'] + config_json['lambda_role_name'],
+        config_json['assume_role_policy'],
+        config_json['api_name'] + config_json['lambda_role_policy_name'],
+        config_json['allow_much_policy'],
         lambda_zip_file,
         description
         )
@@ -189,10 +189,10 @@ def create_mySpace(config_json, api_json):
     print('Creating API -')
     api_id = aws.create_api(
         config_json['api_name'],
-        config_json['api_name'] + config_json['aws_api_role'],
-        config_json['aws_assume_role'],
-        config_json['api_name'] + config_json['aws_api_role_policy'],
-        config_json['aws_lambda_invoke'],
+        config_json['api_name'] + config_json['api_invoke_lambda_role_name'],
+        config_json['assume_role_policy'],
+        config_json['api_name'] + config_json['api_invoke_lambda_policy_name'],
+        config_json['api_invoke_lambda_policy'],
         config_json['api_json_file'],
         lambda_arn,
         region,
