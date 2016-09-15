@@ -736,7 +736,7 @@ def create_function(name, handler, language, role_arn, zip_file, description):
                 Handler=handler + '.' + handler,
                 Code={"ZipFile" : zip_file},
                 Description=description,
-                Timeout=30
+                Timeout=10
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
