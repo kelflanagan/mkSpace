@@ -733,7 +733,7 @@ def create_function(name, handler, language, role_arn, zip_file, description):
                 FunctionName=name,
                 Runtime=language,
                 Role=role_arn,
-                Handler=handler + '.' + 'lambda_function',
+                Handler=handler + '.' + handler,
                 Code={"ZipFile" : zip_file},
                 Description=description,
                 Timeout=30
