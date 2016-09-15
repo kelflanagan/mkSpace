@@ -713,11 +713,10 @@ def list_roles():
 
 """ create_function creates an aws lambda function. 
 The python module is contained in a zip file stored at github.com.
-paramters: cfg_json where the github info is found role_arn to 
-attach to this lambda function
+paramters: name, handler, role_arn, zip_file, and description
 returns: lambds function ARN
 """
-def create_function(name, role_arn, zip_file, description):
+def create_function(name, handler, language, role_arn, zip_file, description):
     e = None
 
     # create boto3 lambda client
@@ -728,15 +727,16 @@ def create_function(name, role_arn, zip_file, description):
     # it is created before the role and policy are in place
     retries = 5
     while retries > 0:
+        print("try")
         try:
             response = l.create_function(
                 FunctionName=name,
-                Runtime='python2.7',
+                Runtime=language,
                 Role=role_arn,
-                Handler=name + '.' + name,
+                Handler=handler + '.' + 'lambda_function',
                 Code={"ZipFile" : zip_file},
                 Description=description,
-                Timeout=10
+                Timeout=30
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
@@ -891,6 +891,8 @@ def create_lambda_function(api_name,
     print('  Creating function')
     lambda_arn = create_function(
         api_name,
+        api_name,
+        'python2.7',
         lambda_role_arn,
         lambda_zip_file,
         comment_str

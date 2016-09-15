@@ -116,7 +116,7 @@ def delete_mySpace(config_json):
     print('Deleting API -')
     success = aws.delete_api(
         config_json['api_name'],
-        config_json['api_name'] + 'Prod',
+        config_json['api_name'],
         )
     if not success:
         failure = True
@@ -196,7 +196,7 @@ def create_mySpace(config_json, api_json):
         config_json['api_json_file'],
         lambda_arn,
         region,
-        config_json['api_name'] + 'Prod'
+        config_json['api_name']
         )
 
     if api_id == None:
@@ -387,7 +387,7 @@ elif sys.argv[1] == 'domain':
             config_json['host_name'],
             config_json['api_name'],
             config_json['api_name'],
-            config_json['api_name'] + 'Prod',
+            config_json['api_name'],
             crt, 
             key, 
             chain
