@@ -794,7 +794,7 @@ def add_sns_permission(arn):
 
 """ create_function creates an aws lambda function. 
 The python module is contained in a zip file stored at github.com.
-paramters: name, handler, role_arn, zip_file, and description
+paramters: name, handler, role_arn, zip_file, description and timeout
 returns: lambds function ARN
 """
 def create_function(name, 
@@ -814,7 +814,6 @@ def create_function(name,
     # it is created before the role and policy are in place
     retries = 5
     while retries > 0:
-        print("try")
         try:
             response = l.create_function(
                 FunctionName=name,
@@ -925,6 +924,7 @@ parameters: api_name
                                  functions code.
             comment_str        - the description of the lambda function
             runtime            - time in seconds that we permit lambda to run
+            timeout            - timeout time for the mySpace lambda function
 returns: lambda_arn on success and None on failure
 """
 def create_lambda_function(api_name, 
@@ -933,7 +933,8 @@ def create_lambda_function(api_name,
                            lambda_role_policy, 
                            lambda_allow_much, 
                            lambda_zip_file, 
-                           comment_str
+                           comment_str,
+                           timeout
                            ):
 
     # create role for lambda function
@@ -975,7 +976,6 @@ def create_lambda_function(api_name,
         .format(lambda_role_policy, lambda_role)
         )
 
-    timeout = 10
     print('  Creating function')
     lambda_arn = create_function(
         api_name,

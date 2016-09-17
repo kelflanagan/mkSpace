@@ -171,6 +171,7 @@ def create_mySpace(config_json, api_json):
         + ' services'
         )
 
+    timeout = 20
     print('Creating lambda function -')
     lambda_arn = aws.create_lambda_function(
         config_json['api_name'],
@@ -179,7 +180,8 @@ def create_mySpace(config_json, api_json):
         config_json['api_name'] + config_json['lambda_role_policy_name'],
         config_json['allow_much_policy'],
         lambda_zip_file,
-        description
+        description,
+        timeout
         )
 
     # acquire region from lambda arn
