@@ -26,6 +26,36 @@ def verify_email_address(email_address):
 ###############
 
 
+""" subscribe_to_sns_topic() sunscribes a lambda function to a sns topic
+paramters: topic_name to subscribe to
+           lambda_arn (ARN of lambda to subscribe)
+returns: topic ARN on success and None on failure
+"""
+def subscribe_to_sns_topic(topic_name, lambda_arn):
+    topic_list = list_sns_topics()
+    if topic_list == None:
+        return None
+
+    sns = boto3.client('sns')
+    if topic_name not in topic_list:
+        return None
+    try:
+        response = sns.subscribe(
+            TopicArn=topic_list[topic_name],
+            Protocol='lambda',
+            Endpoint=lambda_arn
+            )
+    except botocore.exceptions.ClientError as e:
+        print "subscribe_to_sns_topic(): %s" % e
+        return None
+
+    if 'SubscriptionArn' not in response:
+        return None
+
+    print(response['SubscriptionArn'])
+    return response['SubscriptionArn']
+
+
 """ update_dynamodb_item() creates or updates an item in the db
 parameters: t_name (table name)
             k (primary HASH key)
@@ -446,6 +476,34 @@ def make_api(filename):
     return response['id']
 
 
+""" put_api merges an API definition with an existing API. The new portion
+is from a python dictionary representing a JSON formatted swagger object
+parameters: api (dictionary object in JSON swagger format)
+returns: API_ID on success or None on failure
+"""
+def put_api(api, api_id):
+    # convert dict to byte array
+    print('convert dict to bytes')
+    b = bytearray(json.dumps(api), "ascii")
+    print('done converting dict to bytes')
+
+    # create client to api gateway
+    api = boto3.client('apigateway')
+    # make request
+    try:
+        response = api.put_rest_api(
+            restApiId=api_id,
+            mode='merge',
+            failOnWarnings=False,
+            body=b
+            )
+    except botocore.exceptions.ClientError as e:
+        print "put_rest_api(): %s" % e
+        return None
+
+    return response['id']
+
+
 """ remove_api() deletes an API at Amazon AWS API Gateway
 parameters: api_id
 returns: True on success and False on failure
@@ -711,12 +769,41 @@ def list_roles():
     return role_list
 
 
+""" add_sns_permission() adds sufficient permission to the lambda function
+so sns can invoke it
+paramters: function_arn
+returns: True on success and False on failure
+"""
+def add_sns_permission(arn):
+    # create boto3 lambda client
+    l = boto3.client('lambda')
+
+    try:
+        response = l.add_permission(
+            FunctionName=arn,
+            StatementId='sns_invoke',
+            Action='lambda:invokeFunction',
+            Principal='sns.amazonaws.com'
+            )
+    except botocore.exceptions.ClientError as e:
+        print "add_sns_permission(): %s" % e
+        return False
+
+    return True
+
+
 """ create_function creates an aws lambda function. 
 The python module is contained in a zip file stored at github.com.
 paramters: name, handler, role_arn, zip_file, and description
 returns: lambds function ARN
 """
-def create_function(name, handler, language, role_arn, zip_file, description):
+def create_function(name, 
+                    handler, 
+                    language, 
+                    role_arn, 
+                    zip_file, 
+                    description, 
+                    timeout):
     e = None
 
     # create boto3 lambda client
@@ -736,7 +823,7 @@ def create_function(name, handler, language, role_arn, zip_file, description):
                 Handler=handler + '.' + handler,
                 Code={"ZipFile" : zip_file},
                 Description=description,
-                Timeout=10
+                Timeout=timeout
                 )
             return response['FunctionArn']
         except botocore.exceptions.ClientError as e:
@@ -888,6 +975,7 @@ def create_lambda_function(api_name,
         .format(lambda_role_policy, lambda_role)
         )
 
+    timeout = 10
     print('  Creating function')
     lambda_arn = create_function(
         api_name,
@@ -895,7 +983,8 @@ def create_lambda_function(api_name,
         'python2.7',
         lambda_role_arn,
         lambda_zip_file,
-        comment_str
+        comment_str,
+        timeout
         )
     if lambda_arn == None:
         print('    Failed to create lambda function {}'.format(api_name))
