@@ -127,7 +127,7 @@ def get_dynamodb_table_arn(table_name):
     return response['Table']['TableArn']
 
 
-""" list_dynamodb_tables() returns a dictionary of db table names
+""" list_dynamodb_tables() returns a list of db table names
 paramters: no parameters
 returns: list of table names
 """
@@ -193,6 +193,23 @@ def create_dynamodb_table(table_name, primary_key):
     return response['TableDescription']['TableArn']
 
 
+""" delete_dynamodb_table(table_name) deletes the identified table
+paramters: table_name
+returns: True on success and False on failure
+"""
+def delete_dynamodb_table(table_name):
+    # create boto3 client
+    db = boto3.client('dynamodb')
+    try:
+        response = db.delete_table(
+            TableName=table_name
+            )
+    except botocore.exceptions.ClientError as e:
+        print "delete_dynamodb_table(): %s" % e
+        return False
+    return True
+
+
 """ list_sns_topics() returns a dictionary of topic names and arns.
 paramters: no parameters
 returns: dictionary where the keys represent topic names and the
@@ -245,6 +262,51 @@ def create_sns_topic(topic_name):
         return None
     
     return response['TopicArn']
+
+
+""" delete_sns_topic() deletes a topic and all subscriptions to it. 
+parameters: topic_arn
+returns: True on success and False on failure
+"""
+def delete_sns_topic(topic_arn):
+    # delete subscriptions associated with this topic
+    sns = boto3.client('sns')
+    more_pages = True
+    try:
+        response = sns.list_subscriptions_by_topic(
+            TopicArn=topic_arn
+            )
+    except botocore.exceptions.ClientError as e:
+        print "delete_sns_topic(): %s" % e
+        return False
+
+    while more_pages:
+        for subscription in response['Subscriptions']:
+            sns.unsubscribe(
+                SubscriptionArn=subscription['SubscriptionArn']
+                )
+        if 'NextToken' in response:
+            try:
+                response = sns.list_subscriptions_by_topic(
+                    TpoicArn=topic_arn,
+                    NextToken=response['NextToken']
+                    )
+            except botocore.exceptions.ClientError as e:
+                print "delete_sns_topic(): %s" % e
+                return False
+        else:
+            more_pages = False
+
+    # delete topic
+    try:
+        response = sns.delete_topic(
+            TopicArn=topic_arn
+            )
+    except botocore.exceptions.ClientError as e:
+        print "delete_sns_topic(): %s" % e
+        return False
+
+    return True
 
 
 """ list_domains() returns a list of existing domain names.
@@ -366,7 +428,7 @@ def delete_domain_name(domain_name, api_name, base_path):
     return True
 
 
-""" list_api_deployments() lists all depluments for an API
+""" list_api_deployments() lists all deployments for an API
 paramters: api_id
 return: list where each entry is a deployment ID associated with the API
 or None on failure
@@ -542,6 +604,63 @@ def list_apis():
         for item in response['items']:
             api_list[item['name']] = item['id'] 
     return api_list
+
+
+""" list_api_resources() lists the resources and their ids
+paramters: api_name
+returns: dictionary with resource as key and id as value or None
+"""
+def list_api_resources(api_id):
+    resource_list = {}
+    api = boto3.client('apigateway')
+    more_pages = True
+    try:
+        response = api.get_resources(
+            restApiId=api_id
+            )
+    except botocore.exceptions.ClientError as e:
+        print "list_api_resources(): %s" % e
+        return False
+
+    while more_pages:
+        for item in response['items']:
+            resource_list[item['path']] = item['id']
+        if 'position' in response:
+            try:
+                response = api.get_resources(
+                    restApiId=api_id,
+                    position=response['position']
+                    )
+            except botocore.exceptions.ClientError as e:
+                print "list_api_resources(): %s" % e
+                return False
+        else:
+            more_pages = False
+
+    return resource_list
+
+
+""" delete_api_resource() deletes the named resource and associated methods
+paramters: api_name
+           resource_path
+returns: True on success and False on failure
+"""
+def delete_api_resource(api_name, resource_path):
+    # get id of api
+    api_list = list_apis()
+    if api_name not in api_list:
+        return False
+    api_id = api_list[api_name]
+
+    api = boto3.client('apigateway')
+    # get list of resources in associated with API
+    resource_list = list_api_resources(api_id)
+    # delete resource
+    response = api.delete_resource(
+        restApiId=api_id,
+        resourceId=resource_list[resource_path]
+        )
+    return True
 
 
 """ list the policies and create a dictionary of their names and
@@ -853,9 +972,9 @@ def update_function(name, zip_file):
     return response['FunctionArn']
 
 
-""" delete_function() deletes aAmazon AWS lambda function
+""" delete_function() deletes a Amazon AWS lambda function
 parameters: function arn
-returns: Nothing
+returns: True on success and False on failure
 """
 def delete_function(function_arn):
     # create client to api gateway
