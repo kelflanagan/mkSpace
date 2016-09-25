@@ -1252,7 +1252,7 @@ def create_api(api_name,
     # write value into api object in the uri location for each method
     # also write api_role_arn into the credentials value
     api_gw_int = 'x-amazon-apigateway-integration'
-    methods = ['get', 'put', 'post', 'delete']
+    methods = api_json['paths']['/'].keys()
     for method in methods:
         api_json['paths']['/'][method][api_gw_int]['uri'] = uri_value
         api_json['paths']['/'][method][api_gw_int]['credentials'] = api_role_arn
