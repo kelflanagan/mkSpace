@@ -901,7 +901,8 @@ def add_sns_permission(arn):
         response = l.add_permission(
             FunctionName=arn,
             StatementId='sns_invoke',
-            Action='lambda:invokeFunction',
+#            Action='lambda:invokeFunction',
+            Action='lambda:*',
             Principal='sns.amazonaws.com'
             )
     except botocore.exceptions.ClientError as e:

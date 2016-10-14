@@ -6,42 +6,6 @@
   "paths": {
     "/": {
       "post": {
-        "x-amazon-apigateway-integration": {
-          "passthroughBehavior": "when_no_templates",
-          "responses": {
-            "default": {
-              "statusCode": "200"
-            },
-            ".*NotFound.*": {
-              "statusCode": "404",
-              "responseTemplates": {
-                "application/json": "{\"errorMessage\" : \"Not Found\"}"
-              }
-            },
-            ".*MethodNotAllowed.*": {
-              "statusCode": "405",
-              "responseTemplates": {
-                "application/json": "{\"errorMessage\" : \"Method Not Allowed\"}"
-              }
-            },
-            ".*Server.*": {
-              "statusCode": "500",
-              "responseTemplates": {
-                "application/json": "{\"errorMessage\" : \"Internal Server Error\"}"
-              }
-            }
-          },
-          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:mySpace/invocations",
-          "httpMethod": "POST",
-          "requestTemplates": {
-            "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n#foreach($key in $myobj.keySet())\n    \"$key\" : \"$myobj.get($key)\"#if($foreach.hasNext),#else\n#end\n\n#end\n}"
-          },
-          "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
-          "type": "aws"
-        },
-        "produces": [
-          "application/json"
-        ],
         "responses": {
           "200": {
             "description": "200 response"
@@ -56,11 +20,6 @@
             "description": "500 response"
           }
         },
-        "consumes": [
-          "application/json"
-        ]
-      },
-      "get": {
         "x-amazon-apigateway-integration": {
           "passthroughBehavior": "when_no_templates",
           "responses": {
@@ -68,29 +27,40 @@
               "statusCode": "200"
             },
             ".*NotFound.*": {
-              "statusCode": "404",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
-              }
+                "application/json": "{\"errorMessage\" : \"Not Found\"}"
+              },
+              "statusCode": "404"
+            },
+            ".*MethodNotAllowed.*": {
+              "responseTemplates": {
+                "application/json": "{\"errorMessage\" : \"Method Not Allowed\"}"
+              },
+              "statusCode": "405"
             },
             ".*Server.*": {
-              "statusCode": "500",
               "responseTemplates": {
-                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
-              }
+                "application/json": "{\"errorMessage\" : \"Internal Server Error\"}"
+              },
+              "statusCode": "500"
             }
           },
           "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:mySpace/invocations",
           "httpMethod": "POST",
           "requestTemplates": {
-            "application/json": "{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\"\n}"
+            "application/json": "#set($myobj = $input.path('$'))\n{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\",\n#foreach($key in $myobj.keySet())\n    \"$key\" : \"$myobj.get($key)\"#if($foreach.hasNext),#else\n#end\n\n#end\n}"
           },
           "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
           "type": "aws"
         },
-        "produces": [
+        "consumes": [
           "application/json"
         ],
+        "produces": [
+          "application/json"
+        ]
+      },
+      "get": {
         "responses": {
           "200": {
             "description": "200 response"
@@ -102,7 +72,37 @@
             "description": "500 response"
           }
         },
+        "x-amazon-apigateway-integration": {
+          "passthroughBehavior": "when_no_templates",
+          "responses": {
+            "default": {
+              "statusCode": "200"
+            },
+            ".*NotFound.*": {
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Not Found\"\n}"
+              },
+              "statusCode": "404"
+            },
+            ".*Server.*": {
+              "responseTemplates": {
+                "application/json": "{\n    \"errorMessage\" : \"Internal Server Error\"\n}"
+              },
+              "statusCode": "500"
+            }
+          },
+          "uri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:356335180012:function:mySpace/invocations",
+          "httpMethod": "POST",
+          "requestTemplates": {
+            "application/json": "{\n    \"resource_path\" : \"$context.resourcePath\",\n    \"http_method\" : \"$context.httpMethod\"\n}"
+          },
+          "credentials": "arn:aws:iam::356335180012:role/mySpace_api_invoke_lambda",
+          "type": "aws"
+        },
         "consumes": [
+          "application/json"
+        ],
+        "produces": [
           "application/json"
         ]
       }
